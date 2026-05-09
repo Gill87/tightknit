@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { signUpPage, pageInner, logoRow, appTitle, tagline, footerRow, footerLink } from '../components/formStyles'
+import { signUpPage, pageInner, logoRow, appTitle, tagline, footerRow, footerLink } from '@/app/auth/components/formStyles'
 
 export default function SignInPage() {
   return (

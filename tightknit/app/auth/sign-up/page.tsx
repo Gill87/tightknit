@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { getSupabase } from '@/lib/supabase/client'
-import FormField from '../components/FormField'
-import Input from '../components/Input'
-import Button from '../components/Button'
+import FormField from '@/app/auth/components/FormField'
+import Input from '@/app/auth/components/Input'
+import Button from '@/app/auth/components/Button'
 import {
   signUpPage,
   pageInner,
@@ -17,7 +17,7 @@ import {
   footerRow,
   footerLink,
   errorBanner,
-} from '../components/formStyles'
+} from '@/app/auth/components/formStyles'
 
 export default function SignUpPage() {
   const [name, setName] = useState('')
@@ -38,6 +38,7 @@ export default function SignUpPage() {
       email,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: { name, username, phone },
       },
     })
