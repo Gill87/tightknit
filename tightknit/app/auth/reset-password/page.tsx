@@ -1,6 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { getSupabase } from '@/lib/supabase/client'
 import FormField from '@/app/auth/components/FormField'
 import Input from '@/app/auth/components/Input'
 import Button from '@/app/auth/components/Button'
@@ -10,13 +13,38 @@ import {
   formRoot,
   footerRow,
   footerLink,
+  errorBanner,
   signInHeading,
   signInSubtitle,
 } from '@/app/auth/formStyles'
 
 export default function ResetPasswordPage() {
-  function handleSubmit(e: React.FormEvent) {
+  const router = useRouter()
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError(null)
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setIsLoading(true)
+
+    const { error: updateError } = await getSupabase().auth.updateUser({ password })
+
+    setIsLoading(false)
+
+    if (updateError) {
+      setError(updateError.message)
+    } else {
+      router.push('/home')
+    }
   }
 
   return (
@@ -32,6 +60,9 @@ export default function ResetPasswordPage() {
               placeholder="At least 8 characters"
               name="password"
               autoComplete="new-password"
+              minLength={8}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               required
             />
           </FormField>
@@ -42,11 +73,18 @@ export default function ResetPasswordPage() {
               placeholder="Repeat your new password"
               name="confirmPassword"
               autoComplete="new-password"
+              minLength={8}
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
               required
             />
           </FormField>
 
-          <Button type="submit">Reset Password</Button>
+          {error && <p className={errorBanner}>{error}</p>}
+
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Updating…' : 'Reset Password'}
+          </Button>
         </form>
 
         <p className={footerRow}>

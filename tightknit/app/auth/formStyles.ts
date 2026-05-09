@@ -37,3 +37,9 @@ export const errorBanner = 'text-xs text-red-500 text-center -mt-2'
 export const signInHeading = 'text-[2rem] font-bold text-[var(--color-text)] leading-tight mb-1'
 export const signInSubtitle = 'text-[15px] text-[var(--color-muted)] mb-8'
 export const forgotPassword = 'text-sm text-[var(--color-muted)] text-right'
+
+// Success panel
+export const successPanel = 'rounded-2xl bg-[var(--color-surface)] px-5 py-6 text-center flex flex-col items-center gap-2'
+export const successPanelTitle = 'font-semibold text-[var(--color-text)] text-base'
+export const successPanelBody = 'text-sm text-[var(--color-muted)]'
+export const successPanelEmail = 'font-medium text-[var(--color-primary)]'
