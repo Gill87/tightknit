@@ -73,7 +73,7 @@ export default function SignInPage() {
             />
           </FormField>
 
-          <p className={forgotPassword}>Forgot password?</p>
+          <Link href="/auth/forget-password" className={forgotPassword}>Forgot password?</Link>
 
           {error && <p className={errorBanner}>{error}</p>}
 
