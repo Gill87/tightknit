@@ -1,4 +1,4 @@
-import { primaryButton } from './formStyles'
+import { primaryButton } from '../formStyles'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode

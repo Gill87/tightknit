@@ -17,7 +17,7 @@ import {
   footerRow,
   footerLink,
   errorBanner,
-} from '@/app/auth/components/formStyles'
+} from '@/app/auth/formStyles'
 
 export default function SignUpPage() {
   const [name, setName] = useState('')

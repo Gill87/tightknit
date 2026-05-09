@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { inputWrapper, inputBase, inputWithToggle, toggleBtn } from './formStyles'
+import { inputWrapper, inputBase, inputWithToggle, toggleBtn } from '../formStyles'
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   showPasswordToggle?: boolean

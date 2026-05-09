@@ -1,4 +1,4 @@
-import { fieldRoot, fieldLabel, helperText, helperLink } from './formStyles'
+import { fieldRoot, fieldLabel, helperText, helperLink } from '../formStyles'
 
 interface FormFieldProps {
   label: string
