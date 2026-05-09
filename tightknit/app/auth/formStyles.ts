@@ -32,3 +32,8 @@ export const footerLink = 'font-semibold text-[var(--color-primary)]'
 
 // Error
 export const errorBanner = 'text-xs text-red-500 text-center -mt-2'
+
+// Sign-in page
+export const signInHeading = 'text-[2rem] font-bold text-[var(--color-text)] leading-tight mb-1'
+export const signInSubtitle = 'text-[15px] text-[var(--color-muted)] mb-8'
+export const forgotPassword = 'text-sm text-[var(--color-muted)] text-right'
