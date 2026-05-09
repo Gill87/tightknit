@@ -40,16 +40,44 @@ export const tkAsk = {
   sliderLabelsRow:
     "mt-2 flex justify-between text-xs font-medium text-tk-muted",
 
-  dateRow:
-    "relative flex min-h-[52px] items-center gap-3 rounded-3xl border border-tk-border bg-tk-cream-deep px-4 py-3 shadow-inner shadow-black/[0.02]",
+  dateFieldRoot: "relative",
 
-  dateInput:
-    "absolute inset-0 cursor-pointer opacity-0",
+  dateTrigger:
+    "flex min-h-[52px] w-full items-center gap-3 rounded-3xl border border-tk-border bg-tk-cream-deep px-4 py-3 text-left shadow-inner shadow-black/[0.02] outline-none transition hover:bg-white focus-visible:border-tk-terracotta/40 focus-visible:ring-2 focus-visible:ring-tk-terracotta/20",
 
-  dateDisplay:
-    "pointer-events-none flex flex-1 items-center justify-between gap-2 text-[15px] text-tk-forest",
+  dateTriggerLabel:
+    "flex flex-1 items-center justify-between gap-2 text-[15px] text-tk-forest",
 
   datePlaceholder: "text-tk-muted",
+
+  calendarPopover:
+    "absolute bottom-full left-0 right-0 z-[100] mb-2 rounded-2xl border border-tk-border bg-tk-card p-3 shadow-xl shadow-black/10",
+
+  calendarPopoverHint:
+    "mb-2 text-center text-[11px] font-medium uppercase tracking-wide text-tk-muted",
+
+  calendarScroll:
+    "max-h-[min(18rem,42vh)] overflow-y-auto overscroll-contain rounded-xl bg-tk-cream-deep/60 px-2 py-2",
+
+  calendarMonthBlock: "pb-4 pt-1 last:pb-1",
+
+  calendarMonthTitle:
+    "sticky top-0 z-[1] bg-tk-cream-deep/95 pb-2 pt-1 text-center text-sm font-semibold text-tk-forest backdrop-blur-[2px]",
+
+  calendarWeekdays:
+    "mb-1 grid grid-cols-7 gap-0.5 text-[10px] font-medium uppercase tracking-wide text-tk-muted",
+
+  calendarWeekday: "text-center",
+
+  calendarGrid: "grid grid-cols-7 gap-1",
+
+  calendarCellEmpty: "aspect-square min-h-[2rem]",
+
+  calendarDayBtn:
+    "aspect-square min-h-[2rem] rounded-xl text-sm font-medium text-tk-forest transition hover:bg-white disabled:pointer-events-none disabled:text-tk-muted/40 disabled:hover:bg-transparent",
+
+  calendarDaySelected:
+    "pointer-events-auto bg-tk-terracotta text-white shadow-sm hover:bg-tk-terracotta-hover disabled:text-white disabled:hover:bg-tk-terracotta-hover",
 
   primaryButton:
     "mt-2 w-full rounded-full bg-tk-cream-deep py-4 text-center text-base font-semibold text-tk-forest shadow-sm transition hover:bg-white active:scale-[0.99]",

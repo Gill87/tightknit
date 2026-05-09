@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  CalendarIcon,
-  ChevronDownIcon,
-  ChevronLeftIcon,
-} from "./components/icons";
+import { DatePickerField } from "./components/DatePickerField";
+import { ChevronLeftIcon } from "./components/icons";
 import { cn, tkAsk } from "./formStyles";
 
 const DURATION_MIN = 30;
@@ -28,18 +25,6 @@ function todayIsoDate(): string {
   const mo = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${mo}-${day}`;
-}
-
-function formatSelectedDay(iso: string): string {
-  const [y, mo, day] = iso.split("-").map(Number);
-  if (!y || !mo || !day) return iso;
-  const dt = new Date(y, mo - 1, day);
-  return dt.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 export default function AskPage() {
@@ -109,27 +94,14 @@ export default function AskPage() {
         </section>
 
         <section className="flex flex-col gap-2" aria-labelledby="when-label">
-          <label id="when-label" htmlFor="needed-day" className={tkAsk.sectionLabel}>
+          <p id="when-label" className={tkAsk.sectionLabel}>
             When do you need it?
-          </label>
-          <div className={tkAsk.dateRow}>
-            <CalendarIcon className="shrink-0 text-tk-terracotta" />
-            <span className={tkAsk.dateDisplay}>
-              <span className={neededDay ? "" : tkAsk.datePlaceholder}>
-                {neededDay ? formatSelectedDay(neededDay) : "Pick a day"}
-              </span>
-              <ChevronDownIcon className="shrink-0 text-tk-muted" />
-            </span>
-            <input
-              id="needed-day"
-              type="date"
-              className={tkAsk.dateInput}
-              value={neededDay}
-              min={todayIsoDate()}
-              onChange={(e) => setNeededDay(e.target.value)}
-              aria-label="Choose the day you need help"
-            />
-          </div>
+          </p>
+          <DatePickerField
+            id="needed-day"
+            value={neededDay}
+            onChange={setNeededDay}
+          />
         </section>
 
         <button
