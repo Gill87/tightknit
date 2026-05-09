@@ -1,6 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { getSupabase } from '@/lib/supabase/client'
 import FormField from '@/app/auth/components/FormField'
 import Input from '@/app/auth/components/Input'
 import Button from '@/app/auth/components/Button'
@@ -10,14 +13,33 @@ import {
   formRoot,
   footerRow,
   footerLink,
+  errorBanner,
   signInHeading,
   signInSubtitle,
   forgotPassword,
 } from '@/app/auth/formStyles'
 
 export default function SignInPage() {
-  function handleSubmit(e: React.FormEvent) {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError(null)
+    setIsLoading(true)
+
+    const { error: signInError } = await getSupabase().auth.signInWithPassword({ email, password })
+
+    setIsLoading(false)
+
+    if (signInError) {
+      setError('Invalid credentials.')
+    } else {
+      router.push('/home')
+    }
   }
 
   return (
@@ -33,6 +55,8 @@ export default function SignInPage() {
               placeholder="alex@email.com"
               name="email"
               autoComplete="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               required
             />
           </FormField>
@@ -43,13 +67,19 @@ export default function SignInPage() {
               placeholder="Your password"
               name="password"
               autoComplete="current-password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               required
             />
           </FormField>
 
           <p className={forgotPassword}>Forgot password?</p>
 
-          <Button type="submit">Log in</Button>
+          {error && <p className={errorBanner}>{error}</p>}
+
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Logging in…' : 'Log in'}
+          </Button>
         </form>
 
         <p className={footerRow}>
