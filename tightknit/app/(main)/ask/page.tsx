@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase/client";
 import { DatePickerField } from "./components/DatePickerField";
@@ -29,6 +29,13 @@ function todayIsoDate(): string {
   return `${y}-${mo}-${day}`;
 }
 
+function hourBalanceToNumber(raw: unknown): number {
+  if (raw == null) return 0;
+  const n =
+    typeof raw === "string" ? parseFloat(raw) : Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function AskPage() {
   const router = useRouter();
   const [need, setNeed] = useState("");
@@ -36,8 +43,60 @@ export default function AskPage() {
   const [neededDay, setNeededDay] = useState<string>(() => todayIsoDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  /** `null` until first profile fetch */
+  const [balanceHours, setBalanceHours] = useState<number | null>(null);
 
-  const canSubmit = need.trim().length > 0 && neededDay.length > 0 && !isSubmitting;
+  const balanceMins = (balanceHours ?? 0) * 60;
+  const maxAffordableMins =
+    balanceMins >= DURATION_MIN
+      ? Math.min(
+          DURATION_MAX,
+          Math.floor(balanceMins / DURATION_STEP) * DURATION_STEP,
+        )
+      : 0;
+  const canAffordAnyTask = maxAffordableMins >= DURATION_MIN;
+  const durationFitsBalance =
+    balanceHours === null || durationMins <= balanceMins + 1e-9;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabase();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        if (!cancelled) setBalanceHours(0);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("hour_balance")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!cancelled) {
+        setBalanceHours(hourBalanceToNumber(data?.hour_balance));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (balanceHours === null || !canAffordAnyTask) return;
+    setDurationMins((d) =>
+      Math.min(Math.max(d, DURATION_MIN), maxAffordableMins),
+    );
+  }, [balanceHours, maxAffordableMins, canAffordAnyTask]);
+
+  const canSubmit =
+    need.trim().length > 0 &&
+    neededDay.length > 0 &&
+    !isSubmitting &&
+    balanceHours !== null &&
+    canAffordAnyTask &&
+    durationFitsBalance;
 
   const durationLabel = useMemo(
     () => formatDurationLabel(durationMins),
@@ -62,7 +121,7 @@ export default function AskPage() {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("lat, lng, full_name")
+      .select("lat, lng, full_name, hour_balance")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -79,6 +138,16 @@ export default function AskPage() {
       setSubmitError(
         "Add your location to your profile before posting a request.",
       );
+      return;
+    }
+
+    const hoursAvailable = hourBalanceToNumber(profile?.hour_balance);
+    if (durationMins / 60 > hoursAvailable + 1e-9) {
+      setIsSubmitting(false);
+      setSubmitError(
+        "This task is longer than your hour balance. Shorten the time or earn more hours first.",
+      );
+      setBalanceHours(hoursAvailable);
       return;
     }
 
@@ -141,19 +210,38 @@ export default function AskPage() {
             type="range"
             className={tkAsk.slider}
             min={DURATION_MIN}
-            max={DURATION_MAX}
+            max={canAffordAnyTask ? maxAffordableMins : DURATION_MAX}
             step={DURATION_STEP}
             value={durationMins}
             onChange={(e) => setDurationMins(Number(e.target.value))}
+            disabled={balanceHours !== null && !canAffordAnyTask}
             aria-valuemin={DURATION_MIN}
-            aria-valuemax={DURATION_MAX}
+            aria-valuemax={
+              canAffordAnyTask ? maxAffordableMins : DURATION_MAX
+            }
             aria-valuenow={durationMins}
             aria-label="Estimated duration"
           />
           <div className={tkAsk.sliderLabelsRow}>
             <span>30 min</span>
-            <span>4 hours</span>
+            <span>
+              {canAffordAnyTask
+                ? formatDurationLabel(maxAffordableMins)
+                : "4 hours"}{" "}
+              max
+            </span>
           </div>
+          {balanceHours !== null && !canAffordAnyTask ? (
+            <p className={tkAsk.submitError} role="status">
+              You need at least 30 minutes in your hour balance to post a
+              request.
+            </p>
+          ) : balanceHours !== null && !durationFitsBalance ? (
+            <p className={tkAsk.submitError} role="status">
+              Choose a duration up to {formatDurationLabel(maxAffordableMins)}{" "}
+              (your current balance).
+            </p>
+          ) : null}
         </section>
 
         <section className="flex flex-col gap-2" aria-labelledby="when-label">
