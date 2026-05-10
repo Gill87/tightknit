@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRightIcon,
   BellIcon,
@@ -13,11 +13,49 @@ import {
   PinIcon,
 } from "./components/icons";
 import { cn, tkYou } from "./formStyles";
+import { getSupabase } from "@/lib/supabase/client";
 
 const EXCHANGE_COUNT = 5;
-const BALANCE_HOURS = 3;
-const BALANCE_MINUTES = BALANCE_HOURS * 60;
+/** Fallback when `profiles.hour_balance` is missing (numeric hours in DB) */
+const DEFAULT_HOUR_BALANCE = 3;
 const GIFT_STEP_MINUTES = 30;
+
+function hourBalanceToMinutes(hourBalance: unknown): number {
+  if (hourBalance == null) return DEFAULT_HOUR_BALANCE * 60;
+  const n =
+    typeof hourBalance === "string"
+      ? parseFloat(hourBalance)
+      : Number(hourBalance);
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_HOUR_BALANCE * 60;
+  return n * 60;
+}
+
+function formatBalanceHoursLabel(totalMins: number): string {
+  if (totalMins <= 0) return "0 hours";
+  const hours = totalMins / 60;
+  if (Number.isInteger(hours)) {
+    return hours === 1 ? "1 hour" : `${hours} hours`;
+  }
+  const text = hours.toFixed(1).replace(/\.0$/, "");
+  return `${text} hours`;
+}
+
+function initialsFromName(name: string): string {
+  const t = name.trim();
+  if (!t) return "?";
+  const parts = t.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (
+      parts[0]!.slice(0, 1) + parts[parts.length - 1]!.slice(0, 1)
+    ).toUpperCase();
+  }
+  return t.slice(0, 2).toUpperCase();
+}
+
+function formatUsernameHandle(raw: string): string {
+  const u = raw.trim().replace(/^@/, "");
+  return u ? `@${u}` : "@—";
+}
 
 type HistoryEntry = {
   id: string;
@@ -123,6 +161,77 @@ export default function YouPage() {
   const [giftNeighborId, setGiftNeighborId] = useState(MOCK_NEIGHBORS[0]!.id);
   const [giftMinutes, setGiftMinutes] = useState(60);
 
+  const [displayName, setDisplayName] = useState("");
+  const [usernameHandle, setUsernameHandle] = useState("");
+  const [avatarInitials, setAvatarInitials] = useState("?");
+  const [balanceMinutes, setBalanceMinutes] = useState(
+    DEFAULT_HOUR_BALANCE * 60,
+  );
+  const [profileLoaded, setProfileLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      const supabase = getSupabase();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        if (!cancelled) setProfileLoaded(true);
+        return;
+      }
+
+      const meta = user.user_metadata as Record<string, string | undefined>;
+      const fallbackName = meta?.name?.trim() ?? "";
+      const fallbackUsername = meta?.username?.trim() ?? "";
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, username, radius_miles, hour_balance")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      const row = profile as {
+        full_name?: string | null;
+        username?: string | null;
+        radius_miles?: number | null;
+        hour_balance?: unknown;
+      } | null;
+      const name =
+        (row?.full_name && String(row.full_name).trim()) ||
+        fallbackName ||
+        (user.email?.split("@")[0] ?? "");
+      const username =
+        (row?.username && String(row.username).trim()) || fallbackUsername;
+
+      setDisplayName(name || "Neighbor");
+      setUsernameHandle(formatUsernameHandle(username));
+      setAvatarInitials(initialsFromName(name || username || "?"));
+
+      const mins = hourBalanceToMinutes(row?.hour_balance);
+      setBalanceMinutes(mins);
+      setGiftMinutes((m) =>
+        Math.min(Math.max(m, GIFT_STEP_MINUTES), Math.max(mins, GIFT_STEP_MINUTES)),
+      );
+
+      const r = row?.radius_miles;
+      if (typeof r === "number" && !Number.isNaN(r)) {
+        setRadiusMiles(r);
+      }
+
+      setProfileLoaded(true);
+    }
+
+    void loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const radiusLabel = useMemo(
     () => formatRadiusMi(radiusMiles),
     [radiusMiles],
@@ -133,13 +242,18 @@ export default function YouPage() {
     [giftMinutes],
   );
 
+  const balanceHoursLabel = useMemo(
+    () => formatBalanceHoursLabel(balanceMinutes),
+    [balanceMinutes],
+  );
+
   const canSendGift =
-    giftMinutes >= GIFT_STEP_MINUTES && giftMinutes <= BALANCE_MINUTES;
+    giftMinutes >= GIFT_STEP_MINUTES && giftMinutes <= balanceMinutes;
 
   const bumpGiftMinutes = (delta: number) => {
     setGiftMinutes((m) => {
       const next = m + delta;
-      return Math.min(BALANCE_MINUTES, Math.max(GIFT_STEP_MINUTES, next));
+      return Math.min(balanceMinutes, Math.max(GIFT_STEP_MINUTES, next));
     });
   };
 
@@ -156,16 +270,18 @@ export default function YouPage() {
         <section className={tkYou.profileCard} aria-labelledby="profile-name">
           <div className={tkYou.profileRow}>
             <div className={tkYou.avatar} aria-hidden>
-              A
+              {profileLoaded ? avatarInitials : "…"}
             </div>
             <div className={tkYou.profileTextBlock}>
               <p id="profile-name" className={tkYou.displayName}>
-                Alex Rivera
+                {profileLoaded ? displayName || "Neighbor" : "…"}
               </p>
-              <p className={tkYou.handle}>@alexrivera</p>
+              <p className={tkYou.handle}>
+                {profileLoaded ? usernameHandle : "…"}
+              </p>
               <p className={tkYou.balanceBadge}>
                 <ClockIcon className="text-tk-terracotta" />
-                {BALANCE_HOURS} hours
+                {profileLoaded ? balanceHoursLabel : "…"}
               </p>
             </div>
           </div>
@@ -309,7 +425,7 @@ export default function YouPage() {
                       type="button"
                       className={tkYou.giftStepperBtn}
                       aria-label="Increase duration"
-                      disabled={giftMinutes >= BALANCE_MINUTES}
+                      disabled={giftMinutes >= balanceMinutes}
                       onClick={() => bumpGiftMinutes(GIFT_STEP_MINUTES)}
                     >
                       +
