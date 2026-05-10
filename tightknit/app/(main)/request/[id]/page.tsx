@@ -2,17 +2,80 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { use } from "react";
-import { getRequestById } from "@/app/(main)/_data/requests";
+import { use, useEffect, useState } from "react";
+import { getSupabase } from "@/lib/supabase/client";
 import {
   CalendarIcon,
   ChatIcon,
   ChevronLeftIcon,
   ClockIcon,
   PinIcon,
-  StarIcon,
 } from "../components/icons";
 import { tkRequest } from "../formStyles";
+
+type RequestData = {
+  name: string;
+  initials: string;
+  postedAgo: string;
+  distance: string;
+  description: string;
+  durationMins: number;
+  address: string;
+  scheduledFor: string;
+};
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function timeAgo(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function haversine(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 3958.8;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+    { headers: { "Accept-Language": "en" } }
+  );
+  const data = await res.json();
+  const addr = data.address ?? {};
+  const street = addr.road ?? addr.pedestrian ?? "";
+  const area =
+    addr.neighbourhood ?? addr.suburb ?? addr.city ?? addr.town ?? "";
+  return street && area ? `${street}, ${area}` : area || street || "Nearby";
+}
+
+function formatNeededBy(dateStr: string | null): string {
+  if (!dateStr) return "Flexible";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function formatHours(totalMins: number): string {
   const hours = totalMins / 60;
@@ -28,16 +91,93 @@ function formatMinutes(totalMins: number): string {
   return `${h} hr ${m} min`;
 }
 
+function LoadingShell() {
+  return (
+    <div className={tkRequest.shell}>
+      <main className={tkRequest.main}>
+        <header className={tkRequest.headerRow}>
+          <Link href="/home" className={tkRequest.backButton} aria-label="Back to home">
+            <ChevronLeftIcon className="text-tk-forest" />
+          </Link>
+          <h1 className={tkRequest.headerTitle}>Request</h1>
+        </header>
+      </main>
+    </div>
+  );
+}
+
 export default function RequestDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const req = getRequestById(id);
-  if (!req) notFound();
+  const [data, setData] = useState<RequestData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
 
-  const firstName = req.name.split(" ")[0]?.replace(/\.$/, "") ?? req.name;
+  useEffect(() => {
+    async function load() {
+      const supabase = getSupabase();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const [{ data: listing }, { data: myProfile }] = await Promise.all([
+        supabase.from("listings").select("*").eq("id", id).single(),
+        user
+          ? supabase
+              .from("profiles")
+              .select("lat, lng, radius_miles")
+              .eq("id", user.id)
+              .single()
+          : Promise.resolve({ data: null }),
+      ]);
+
+      if (!listing) {
+        setMissing(true);
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: poster } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", listing.posted_by)
+        .single();
+
+      const fullName = poster?.full_name ?? "Neighbor";
+
+      let distance = "Nearby";
+      if (myProfile?.lat && myProfile?.lng && listing.lat && listing.lng) {
+        const d = haversine(myProfile.lat, myProfile.lng, listing.lat, listing.lng);
+        distance = d < 0.1 ? "Same block" : `${d.toFixed(1)} mi away`;
+      }
+
+      let address = "Location not specified";
+      if (listing.lat && listing.lng) {
+        address = await reverseGeocode(listing.lat, listing.lng);
+      }
+
+      setData({
+        name: fullName,
+        initials: getInitials(fullName),
+        postedAgo: timeAgo(listing.created_at),
+        distance,
+        description: listing.description,
+        durationMins: listing.duration_minutes,
+        address,
+        scheduledFor: formatNeededBy(listing.needed_by),
+      });
+      setIsLoading(false);
+    }
+    load();
+  }, [id]);
+
+  if (isLoading) return <LoadingShell />;
+  if (missing || !data) return notFound();
+
+  const firstName = data.name.split(" ")[0]?.replace(/\.$/, "") ?? data.name;
 
   return (
     <div className={tkRequest.shell}>
@@ -55,23 +195,19 @@ export default function RequestDetailPage({
 
         <section className={tkRequest.profileCard} aria-label="Requester">
           <div className={tkRequest.profileAvatar} aria-hidden>
-            {req.initials}
+            {data.initials}
           </div>
           <div className={tkRequest.profileBody}>
             <div className={tkRequest.profileTopRow}>
-              <p className={tkRequest.profileName}>{req.name}</p>
-              <span className={tkRequest.profileRating}>
-                <StarIcon className={tkRequest.profileStarIcon} />
-                {req.rating.toFixed(1)}
-              </span>
+              <p className={tkRequest.profileName}>{data.name}</p>
             </div>
             <div className={tkRequest.profileMetaRow}>
               <PinIcon className={tkRequest.profileMetaIcon} />
-              <span>{req.distance}</span>
+              <span>{data.distance}</span>
               <span className={tkRequest.profileMetaDot} aria-hidden>
                 ·
               </span>
-              <span>{req.postedAgo}</span>
+              <span>{data.postedAgo}</span>
             </div>
           </div>
         </section>
@@ -80,21 +216,21 @@ export default function RequestDetailPage({
           className={tkRequest.descriptionCard}
           aria-label="Request details"
         >
-          <p className={tkRequest.descriptionText}>{req.description}</p>
+          <p className={tkRequest.descriptionText}>{data.description}</p>
         </section>
 
         <section className={tkRequest.pillRow} aria-label="Request summary">
           <span className={tkRequest.pill}>
             <ClockIcon className={tkRequest.pillIconClock} />~
-            {formatMinutes(req.durationMins)}
+            {formatMinutes(data.durationMins)}
           </span>
           <span className={tkRequest.pill}>
             <PinIcon className={tkRequest.pillIconPin} />
-            {req.address}
+            {data.address}
           </span>
           <span className={tkRequest.pill}>
             <CalendarIcon className={tkRequest.pillIconCalendar} />
-            {req.scheduledFor}
+            {data.scheduledFor}
           </span>
         </section>
 
@@ -104,7 +240,7 @@ export default function RequestDetailPage({
           </span>
           <div className="min-w-0 flex-1">
             <p className={tkRequest.earnTitle}>
-              Earn ~{formatHours(req.durationMins)}
+              Earn ~{formatHours(data.durationMins)}
             </p>
             <p className={tkRequest.earnHint}>
               Added to your balance when {firstName} marks it complete
