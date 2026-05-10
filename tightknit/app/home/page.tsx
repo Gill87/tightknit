@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { tkHome } from "./formStyles";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronRightIcon, ClockIcon, PinIcon } from "./components/icons";
+import { getSupabase } from "@/lib/supabase/client";
 
 type FilterId = "all" | "nearby" | "quick";
 
@@ -76,6 +78,12 @@ const MOCK_REQUESTS: RequestItem[] = [
 
 export default function HomePage() {
   const [filter, setFilter] = useState<FilterId>("all");
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await getSupabase().auth.signOut();
+    router.push("/auth/sign-in");
+  }
 
   const filtered = useMemo(() => {
     if (filter === "all") return MOCK_REQUESTS;
@@ -94,9 +102,18 @@ export default function HomePage() {
   return (
     <div className={tkHome.shell}>
       <main className={tkHome.main}>
-        <header className={tkHome.headerStack}>
-          <p className={tkHome.headerEyebrow}>Tightknit</p>
-          <h1 className={tkHome.headerTitle}>Home</h1>
+        <header className="flex items-start justify-between">
+          <div className={tkHome.headerStack}>
+            <p className={tkHome.headerEyebrow}>Tightknit</p>
+            <h1 className={tkHome.headerTitle}>Home</h1>
+          </div>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="mt-1 rounded-full border border-tk-border bg-tk-cream-deep px-3 py-1 text-xs font-medium text-tk-muted transition hover:bg-white hover:text-tk-forest"
+          >
+            Sign out
+          </button>
         </header>
 
         <section
