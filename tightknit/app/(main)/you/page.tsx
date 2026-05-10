@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightIcon,
@@ -8,6 +9,7 @@ import {
   ClockIcon,
   GearIcon,
   GiftIcon,
+  ListPostsIcon,
   LogOutIcon,
   PinIcon,
 } from "./components/icons";
@@ -509,6 +511,24 @@ export default function YouPage() {
               </p>
             </div>
           </div>
+        </section>
+
+        <section aria-labelledby="myposts-heading">
+          <h2 id="myposts-heading" className="sr-only">
+            Your posts
+          </h2>
+          <Link href="/you/myposts" className={tkYou.myPostsNavLink}>
+            <span className={tkYou.myPostsNavIconWrap} aria-hidden>
+              <ListPostsIcon className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className={tkYou.giftTitle}>My posts</span>
+              <span className={tkYou.giftSub}>
+                View, edit, or delete your requests
+              </span>
+            </span>
+            <ChevronRightIcon className={tkYou.giftChevron} />
+          </Link>
         </section>
 
         <section aria-labelledby="history-heading">
