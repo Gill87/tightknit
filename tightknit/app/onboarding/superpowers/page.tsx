@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getSupabase } from '@/lib/supabase/client'
 import * as s from './formStyles'
 
 const PRESETS = [
@@ -19,6 +20,7 @@ export default function SuperpowersPage() {
   const router = useRouter()
   const [value, setValue] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   function handlePreset(preset: string) {
     if (selected === preset) {
@@ -33,6 +35,26 @@ export default function SuperpowersPage() {
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setValue(e.target.value)
     if (selected && e.target.value !== selected) setSelected(null)
+  }
+
+  async function handleSubmit() {
+    if (!hasValue || isLoading) return
+    setIsLoading(true)
+
+    const supabase = getSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setIsLoading(false); return }
+
+    await supabase.from('profiles').insert({
+      id: user.id,
+      full_name: user.user_metadata?.name ?? '',
+      username: user.user_metadata?.username ?? '',
+      phone: user.user_metadata?.phone ?? '',
+      email: user.email ?? '',
+      superpowers: value.trim(),
+    })
+
+    router.push('/home')
   }
 
   const hasValue = value.trim().length > 0
@@ -72,11 +94,11 @@ export default function SuperpowersPage() {
 
         <button
           type="button"
-          disabled={!hasValue}
-          onClick={() => router.push('/home')}
+          disabled={!hasValue || isLoading}
+          onClick={handleSubmit}
           className={`${s.ctaBase} ${hasValue ? s.ctaActive : s.ctaIdle}`}
         >
-          Let's go.
+          {isLoading ? 'Saving…' : "Let's go."}
         </button>
       </div>
     </main>
