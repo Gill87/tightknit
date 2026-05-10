@@ -93,7 +93,7 @@ export default function MessagesPage() {
           !!listing && otherUserId === listing.posted_by;
         const name = isOtherThePoster
           ? postedName || profileName || "Neighbor"
-          : profileName || postedName || "Neighbor";
+          : profileName || "Neighbor";
         if (name === "Neighbor") {
           console.warn("[messages] no name resolved", {
             listingId,

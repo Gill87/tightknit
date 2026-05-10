@@ -62,7 +62,7 @@ export const tkRoom = {
     cn("text-[11px]", isSent ? "text-white/70" : "text-tk-muted"),
 
   inputBar:
-    "flex items-center gap-3 px-4 py-3 border-t border-tk-border bg-tk-cream pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+    "sticky bottom-0 flex items-center gap-3 px-4 py-3 border-t border-tk-border bg-tk-cream pb-[max(0.75rem,env(safe-area-inset-bottom))]",
   inputField:
     "flex-1 rounded-full border border-tk-border bg-tk-cream-deep/50 px-4 py-2.5 text-[15px] text-tk-forest placeholder:text-tk-muted outline-none focus:border-tk-forest/30 transition-colors",
   sendBtn:
