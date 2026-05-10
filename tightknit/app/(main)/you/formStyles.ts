@@ -88,6 +88,23 @@ export const tkYou = {
 
   giftFieldLabel: "text-sm font-semibold text-tk-forest",
 
+  giftSearchWrap: "relative mt-2",
+
+  giftSearchInput:
+    "w-full rounded-2xl border border-tk-border/90 bg-tk-card px-4 py-3 text-[15px] text-tk-forest outline-none ring-tk-terracotta/25 placeholder:text-tk-muted focus:border-tk-terracotta/50 focus:ring-2",
+
+  giftSearchResults:
+    "absolute left-0 right-0 top-full z-10 mt-1 max-h-52 overflow-auto rounded-2xl border border-tk-border/90 bg-tk-card py-1 shadow-lg shadow-black/[0.06]",
+
+  giftSearchResultBtn:
+    "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-tk-cream-deep/80 active:bg-tk-cream-deep",
+
+  giftSearchHint: "mt-2 text-xs text-tk-muted",
+
+  giftSearchEmpty: "px-3 py-4 text-center text-sm text-tk-muted",
+
+  giftErrorText: "mt-2 text-sm text-red-700",
+
   giftNeighborGrid: "mt-2 grid grid-cols-2 gap-2",
 
   giftNeighborChip:

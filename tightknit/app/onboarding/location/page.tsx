@@ -30,22 +30,23 @@ import {
 
 type LocationStatus = 'pending' | 'granted' | 'denied'
 
-const DISTANCE_LABELS: Record<number, string> = {
-  0.25: 'your block',
-  0.5: 'your neighborhood',
-  0.75: 'nearby streets',
-  1: 'your community',
-  1.25: 'your area',
-  1.5: 'your extended area',
-  1.75: 'your broader neighborhood',
-  2: 'your part of town',
-}
+const RADIUS_MIN_MI = 1
+const RADIUS_MAX_MI = 10
 
 const MIN_R = 48
 const MAX_R = 110
 
 function calcCircleRadius(miles: number): number {
-  return MIN_R + ((miles - 0.25) / (2 - 0.25)) * (MAX_R - MIN_R)
+  const m = Math.min(RADIUS_MAX_MI, Math.max(RADIUS_MIN_MI, miles))
+  return MIN_R + ((m - RADIUS_MIN_MI) / (RADIUS_MAX_MI - RADIUS_MIN_MI)) * (MAX_R - MIN_R)
+}
+
+/** Labels for any slider value in the 1–10 mi range */
+function distanceLabelForMiles(miles: number): string {
+  if (miles < 3) return 'your neighborhood'
+  if (miles < 5.5) return 'your community'
+  if (miles < 8) return 'your extended area'
+  return 'your wider area'
 }
 
 async function reverseGeocode(lat: number, lon: number): Promise<string> {
@@ -65,7 +66,7 @@ export default function LocationPage() {
   const router = useRouter()
   const [status, setStatus] = useState<LocationStatus>('pending')
   const [cityName, setCityName] = useState<string>('')
-  const [radius, setRadius] = useState<number>(0.5)
+  const [radius, setRadius] = useState<number>(5)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
 
   const requestLocation = useCallback(() => {
@@ -91,7 +92,7 @@ export default function LocationPage() {
   }, [requestLocation])
 
   const circleR = calcCircleRadius(radius)
-  const distanceLabel = DISTANCE_LABELS[radius] ?? 'your neighborhood'
+  const distanceLabel = distanceLabelForMiles(radius)
 
   return (
     <main className={page}>
@@ -167,16 +168,16 @@ export default function LocationPage() {
               <div className={sliderWrapper}>
                 <input
                   type="range"
-                  min={0.25}
-                  max={2}
+                  min={RADIUS_MIN_MI}
+                  max={RADIUS_MAX_MI}
                   step={0.25}
                   value={radius}
                   onChange={(e) => setRadius(Number(e.target.value))}
                   className={sliderInput}
                 />
                 <div className={sliderMinMax}>
-                  <span>0.25 mi</span>
-                  <span>2 mi</span>
+                  <span>1 mi</span>
+                  <span>10 mi</span>
                 </div>
               </div>
             </div>

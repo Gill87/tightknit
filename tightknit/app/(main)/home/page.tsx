@@ -98,7 +98,7 @@ export default function HomePage() {
         if (profile?.lat && profile?.lng && l.lat && l.lng) {
           const d = haversine(profile.lat, profile.lng, l.lat, l.lng);
           distance = d < 0.1 ? "Same block" : `${d.toFixed(1)} mi away`;
-          nearbyOnly = d <= (profile.radius_miles ?? 1);
+          nearbyOnly = d <= (profile.radius_miles ?? 5);
         }
         return {
           id: l.id,
