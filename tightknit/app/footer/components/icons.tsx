@@ -63,3 +63,25 @@ export function YouNavIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export function MessagesNavIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="24"
+      height="24"
+      viewBox="-2 -2 28 28"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path
+        d="M20 2H4a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h3v4l4-4h9a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

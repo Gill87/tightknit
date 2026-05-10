@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { tkFooter } from "./formStyles";
-import { AskNavIcon, HomeNavIcon, YouNavIcon } from "./components/icons";
+import { AskNavIcon, HomeNavIcon, MessagesNavIcon, YouNavIcon } from "./components/icons";
 
 const tabs = [
   { href: "/home", label: "Home", Icon: HomeNavIcon },
   { href: "/ask", label: "Ask", Icon: AskNavIcon },
+  { href: "/messages", label: "Messages", Icon: MessagesNavIcon },
   { href: "/you", label: "You", Icon: YouNavIcon },
 ] as const;
 
