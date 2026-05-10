@@ -57,6 +57,10 @@ function formatUsernameHandle(raw: string): string {
   return u ? `@${u}` : "@—";
 }
 
+function normalizeUsernameSearchQuery(raw: string): string {
+  return raw.trim().replace(/^@+/, "");
+}
+
 type HistoryEntry = {
   id: string;
   emoji: string;
@@ -181,6 +185,7 @@ export default function YouPage() {
     GiftRecipientOption[]
   >([]);
   const [giftSearchLoading, setGiftSearchLoading] = useState(false);
+  const [giftSearchFocused, setGiftSearchFocused] = useState(false);
   const [selectedRecipient, setSelectedRecipient] =
     useState<GiftRecipientOption | null>(null);
   const [giftSending, setGiftSending] = useState(false);
@@ -210,7 +215,7 @@ export default function YouPage() {
 
   useEffect(() => {
     if (!giftOpen) return;
-    const q = giftSearchDebounced.trim();
+    const q = normalizeUsernameSearchQuery(giftSearchDebounced);
     let cancelled = false;
 
     async function runSearch() {
@@ -634,13 +639,23 @@ export default function YouPage() {
                 <label htmlFor="gift-recipient-search" className={tkYou.giftFieldLabel}>
                   Find a neighbor by username
                 </label>
-                <div className={tkYou.giftSearchWrap}>
+                <div
+                  className={tkYou.giftSearchWrap}
+                  onBlur={(e) => {
+                    if (
+                      !e.currentTarget.contains(e.relatedTarget as Node | null)
+                    ) {
+                      setGiftSearchFocused(false);
+                    }
+                  }}
+                >
                   <input
                     id="gift-recipient-search"
                     type="search"
                     autoComplete="off"
                     placeholder="Search @username"
                     value={giftSearchQuery}
+                    onFocus={() => setGiftSearchFocused(true)}
                     onChange={(e) => {
                       setGiftSearchQuery(e.target.value);
                       setSelectedRecipient(null);
@@ -648,7 +663,7 @@ export default function YouPage() {
                     }}
                     className={tkYou.giftSearchInput}
                   />
-                  {giftSearchQuery.trim().length > 0 ? (
+                  {giftSearchFocused && giftSearchQuery.trim().length > 0 ? (
                     <div
                       className={tkYou.giftSearchResults}
                       role="listbox"
@@ -678,6 +693,8 @@ export default function YouPage() {
                               onClick={() => {
                                 setSelectedRecipient(r);
                                 setGiftSearchQuery(un ? `@${un}` : "");
+                                setGiftSearchFocused(false);
+                                setGiftSearchResults([]);
                                 setGiftError(null);
                               }}
                               className={tkYou.giftSearchResultBtn}
