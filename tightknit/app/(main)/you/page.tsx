@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightIcon,
-  BellIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   ClockIcon,
@@ -120,9 +119,19 @@ const MOCK_NEIGHBORS: NeighborOption[] = [
   { id: "james", initials: "J", name: "James L." },
 ];
 
-const RADIUS_MIN = 0.25;
-const RADIUS_MAX = 5;
+const RADIUS_MIN = 1;
+const RADIUS_MAX = 10;
 const RADIUS_STEP = 0.25;
+const RADIUS_SAVE_DEBOUNCE_MS = 450;
+
+/** Postgres `numeric` often arrives as a string in the browser */
+function parseRadiusMilesDb(raw: unknown): number | null {
+  if (raw == null) return null;
+  const n =
+    typeof raw === "string" ? parseFloat(raw) : Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, n));
+}
 
 function formatRadiusMi(miles: number): string {
   const rounded = Math.round(miles * 100) / 100;
@@ -165,8 +174,7 @@ function sendGiftLabelMinutes(mins: number): string {
 }
 
 export default function YouPage() {
-  const [radiusMiles, setRadiusMiles] = useState(0.5);
-  const [notificationsOn, setNotificationsOn] = useState(true);
+  const [radiusMiles, setRadiusMiles] = useState(5);
   const [giftOpen, setGiftOpen] = useState(false);
   const [giftNeighborId, setGiftNeighborId] = useState(MOCK_NEIGHBORS[0]!.id);
   const [giftMinutes, setGiftMinutes] = useState(60);
@@ -180,6 +188,11 @@ export default function YouPage() {
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
+  const sessionUserIdRef = useRef<string | null>(null);
+  const radiusSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** True after the user moves the slider; avoids profile fetch overwriting local value */
+  const radiusDirtyRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -190,12 +203,16 @@ export default function YouPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
+        sessionUserIdRef.current = null;
+        radiusDirtyRef.current = false;
         if (!cancelled) {
           setHistory([]);
           setProfileLoaded(true);
         }
         return;
       }
+
+      sessionUserIdRef.current = user.id;
 
       const meta = user.user_metadata as Record<string, string | undefined>;
       const fallbackName = meta?.name?.trim() ?? "";
@@ -287,9 +304,11 @@ export default function YouPage() {
         Math.min(Math.max(m, GIFT_STEP_MINUTES), Math.max(mins, GIFT_STEP_MINUTES)),
       );
 
-      const r = row?.radius_miles;
-      if (typeof r === "number" && !Number.isNaN(r)) {
-        setRadiusMiles(r);
+      if (!radiusDirtyRef.current) {
+        const parsedRadius = parseRadiusMilesDb(row?.radius_miles);
+        if (parsedRadius != null) {
+          setRadiusMiles(parsedRadius);
+        }
       }
 
       setProfileLoaded(true);
@@ -298,8 +317,49 @@ export default function YouPage() {
     void loadProfile();
     return () => {
       cancelled = true;
+      if (radiusSaveTimerRef.current) {
+        clearTimeout(radiusSaveTimerRef.current);
+        radiusSaveTimerRef.current = null;
+      }
     };
   }, []);
+
+  async function persistRadiusMiles(miles: number) {
+    const uid = sessionUserIdRef.current;
+    if (!uid) return;
+    const radius_miles =
+      Math.round(
+        Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, miles)) * 1000,
+      ) / 1000;
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ radius_miles })
+      .eq("id", uid)
+      .select("radius_miles");
+    if (error) {
+      console.error("Could not save radius:", error.message);
+      return;
+    }
+    if (!data?.length) {
+      console.error(
+        "Radius update affected no rows (check profile row and RLS).",
+      );
+    }
+  }
+
+  function handleRadiusSliderChange(nextMiles: number) {
+    radiusDirtyRef.current = true;
+    setRadiusMiles(nextMiles);
+    if (!sessionUserIdRef.current) return;
+    if (radiusSaveTimerRef.current) {
+      clearTimeout(radiusSaveTimerRef.current);
+    }
+    radiusSaveTimerRef.current = setTimeout(() => {
+      radiusSaveTimerRef.current = null;
+      void persistRadiusMiles(nextMiles);
+    }, RADIUS_SAVE_DEBOUNCE_MS);
+  }
 
   const radiusLabel = useMemo(
     () => formatRadiusMi(radiusMiles),
@@ -541,36 +601,20 @@ export default function YouPage() {
                   max={RADIUS_MAX}
                   step={RADIUS_STEP}
                   value={radiusMiles}
-                  onChange={(e) => setRadiusMiles(Number(e.target.value))}
+                  onChange={(e) =>
+                    handleRadiusSliderChange(Number(e.target.value))
+                  }
+                  onPointerUp={(e) => {
+                    const el = e.currentTarget;
+                    if (!sessionUserIdRef.current) return;
+                    if (radiusSaveTimerRef.current) {
+                      clearTimeout(radiusSaveTimerRef.current);
+                      radiusSaveTimerRef.current = null;
+                    }
+                    void persistRadiusMiles(Number(el.value));
+                  }}
                   aria-label="Neighborhood radius"
                 />
-              </div>
-            </div>
-
-            <div className={tkYou.settingsRowDivider} />
-
-            <div className={tkYou.settingsRow}>
-              <span className={tkYou.settingsIconWrap}>
-                <BellIcon />
-              </span>
-              <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                <p className={tkYou.settingsLabel}>Notifications</p>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={notificationsOn}
-                  onClick={() => setNotificationsOn((v) => !v)}
-                  className={
-                    notificationsOn ? tkYou.toggleTrackOn : tkYou.toggleTrackOff
-                  }
-                >
-                  <span
-                    className={cn(
-                      tkYou.toggleKnob,
-                      notificationsOn ? tkYou.toggleKnobOn : tkYou.toggleKnobOff,
-                    )}
-                  />
-                </button>
               </div>
             </div>
 

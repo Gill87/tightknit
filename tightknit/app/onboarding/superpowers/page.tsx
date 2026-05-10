@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase/client'
 import * as s from './formStyles'
 
+const RADIUS_MIN_MI = 1
+const RADIUS_MAX_MI = 10
+
 const PRESETS = [
   'Cooking & baking',
   'Moving & lifting',
@@ -25,7 +28,13 @@ function SuperpowersInner() {
 
   const lat = searchParams.get('lat') ? Number(searchParams.get('lat')) : null
   const lng = searchParams.get('lng') ? Number(searchParams.get('lng')) : null
-  const radiusMiles = searchParams.get('radius') ? Number(searchParams.get('radius')) : null
+  const radiusMiles = (() => {
+    const raw = searchParams.get('radius')
+    if (raw == null || raw === '') return null
+    const n = Number(raw)
+    if (!Number.isFinite(n)) return null
+    return Math.min(RADIUS_MAX_MI, Math.max(RADIUS_MIN_MI, n))
+  })()
 
   function handlePreset(preset: string) {
     if (selected === preset) {
