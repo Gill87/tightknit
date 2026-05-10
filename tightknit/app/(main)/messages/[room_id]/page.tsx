@@ -1,20 +1,17 @@
 "use client";
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { getSupabase } from "@/lib/supabase/client";
+import {
+  parseListingRoom,
+  resolveParticipantDisplayName,
+} from "@/lib/messaging/participantDisplayName";
 import { useChat } from "../hooks/useChat";
 import { ChatHeader } from "./components/ChatHeader";
 import { MessageBubble } from "./components/MessageBubble";
 import { MessageInput } from "./components/MessageInput";
 import { tkRoom } from "../formStyles";
-
-type ListingRoomParsed = { listingId: string; peerIds: [string, string] };
-
-function parseListingRoom(roomId: string): ListingRoomParsed | null {
-  const parts = roomId.split("_");
-  if (parts.length !== 4 || parts[0] !== "listing") return null;
-  return { listingId: parts[1], peerIds: [parts[2], parts[3]] };
-}
 
 type ListingCompletionRow = {
   completed_at: string | null;
@@ -62,7 +59,7 @@ export default function RoomPage({
   const parsedRoom = useMemo(() => parseListingRoom(room_id), [room_id]);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [participantName, setParticipantName] = useState("Neighbor");
+  const [participantName, setParticipantName] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [listingCompletion, setListingCompletion] =
     useState<ListingCompletionRow | null>(null);
@@ -96,7 +93,7 @@ export default function RoomPage({
           .single(),
         supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, username")
           .eq("id", otherUserId)
           .single(),
       ]);
@@ -117,19 +114,16 @@ export default function RoomPage({
         setSubtitle(`re: ${desc.length > 35 ? desc.slice(0, 35) + "…" : desc}`);
       }
 
-      const postedName = (listing?.posted_by_name ?? "").trim();
-      const profileName = (profile?.full_name ?? "").trim();
-      const currentIsPoster = !!listing && user.id === listing.posted_by;
-      const name = currentIsPoster
-        ? profileName || "Neighbor"
-        : postedName || profileName || "Neighbor";
+      const name = resolveParticipantDisplayName({
+        listingPostedBy: listing?.posted_by,
+        listingPostedByName: listing?.posted_by_name,
+        otherUserId,
+        profile: profile ?? null,
+      });
       if (name === "Neighbor") {
         console.warn("[chat] no name resolved", {
           listingId: parsed.listingId,
           otherUserId,
-          postedName,
-          profileName,
-          currentIsPoster,
           listingFound: !!listing,
         });
       }
@@ -221,8 +215,12 @@ export default function RoomPage({
   );
 
   const { messages, sendMessage } = useChat(room_id, currentUserId ?? "");
-  const firstName =
-    participantName.split(" ")[0]?.replace(/\.$/, "") ?? participantName;
+  const headerTitle =
+    participantName ||
+    (parsedRoom ? "Loading…" : "");
+  const firstName = participantName.trim()
+    ? participantName.split(" ")[0]?.replace(/\.$/, "") ?? participantName
+    : "them";
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -230,10 +228,31 @@ export default function RoomPage({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  if (!parsedRoom) {
+    return (
+      <div className={tkRoom.shell}>
+        <div className={`${tkRoom.thread} px-4 py-8`}>
+          <p className="text-sm font-medium text-tk-forest" role="alert">
+            This conversation link is invalid or outdated.
+          </p>
+          <p className="mt-2 text-sm text-tk-muted">
+            Check the URL or open Messages from your home screen.
+          </p>
+          <Link
+            href="/messages"
+            className="mt-4 inline-block text-sm font-medium text-tk-forest underline"
+          >
+            Back to Messages
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={tkRoom.shell}>
       <ChatHeader
-        participantName={participantName}
+        participantName={headerTitle}
         subtitle={subtitle}
         completeLabel={completeBtn.label}
         completeDisabled={completeBtn.disabled}
