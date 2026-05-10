@@ -56,6 +56,12 @@ function statusBadge(row: ListingRow): {
   if (row.completed_at) {
     return { label: "Completed", className: tkMyPosts.badgeDone };
   }
+  if (String(row.status ?? "").toLowerCase() === "pending_complete") {
+    return {
+      label: "Pending complete",
+      className: cn(tkMyPosts.badge, tkMyPosts.badgePending),
+    };
+  }
   if (row.claimed_by) {
     return { label: "Claimed", className: tkMyPosts.badgeClaimed };
   }

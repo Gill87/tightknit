@@ -6,9 +6,17 @@ import { tkRoom } from "../../formStyles";
 export function ChatHeader({
   participantName,
   subtitle,
+  completeLabel,
+  completeDisabled,
+  completeBusy,
+  onMarkComplete,
 }: {
   participantName: string;
   subtitle: string;
+  completeLabel: string;
+  completeDisabled?: boolean;
+  completeBusy?: boolean;
+  onMarkComplete?: () => void;
 }) {
   const router = useRouter();
   const initial = participantName.charAt(0).toUpperCase();
@@ -43,7 +51,14 @@ export function ChatHeader({
         <p className={tkRoom.headerSub}>{subtitle}</p>
       </div>
 
-      <button className={tkRoom.markCompleteBtn}>Mark complete</button>
+      <button
+        type="button"
+        className={tkRoom.markCompleteBtn}
+        disabled={completeDisabled || completeBusy}
+        onClick={onMarkComplete}
+      >
+        {completeBusy ? "Saving…" : completeLabel}
+      </button>
     </header>
   );
 }
