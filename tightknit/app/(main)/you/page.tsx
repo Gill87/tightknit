@@ -8,7 +8,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ClockIcon,
-  GearIcon,
   GiftIcon,
   ListPostsIcon,
   LogOutIcon,
@@ -504,9 +503,6 @@ export default function YouPage() {
       <main className={tkYou.main}>
         <header className={tkYou.topRow}>
           <h1 className={tkYou.pageTitle}>You</h1>
-          <button type="button" className={tkYou.iconButton} aria-label="Settings">
-            <GearIcon />
-          </button>
         </header>
 
         <section className={tkYou.profileCard} aria-labelledby="profile-name">
