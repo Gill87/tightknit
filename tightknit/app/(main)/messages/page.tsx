@@ -15,6 +15,7 @@ function timeAgo(iso: string): string {
 
 export default function MessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -22,7 +23,10 @@ export default function MessagesPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
 
       const { data: msgs } = await supabase
         .from("messages")
@@ -30,7 +34,10 @@ export default function MessagesPage() {
         .like("room_id", `%${user.id}%`)
         .order("created_at", { ascending: false });
 
-      if (!msgs?.length) return;
+      if (!msgs?.length) {
+        setIsLoading(false);
+        return;
+      }
 
       // Keep only the latest message per room (msgs already sorted DESC)
       const roomMap = new Map<string, (typeof msgs)[0]>();
@@ -117,6 +124,7 @@ export default function MessagesPage() {
           unreadCount: 0,
         }))
       );
+      setIsLoading(false);
     }
     load();
   }, []);
@@ -126,7 +134,9 @@ export default function MessagesPage() {
       <div className={tkMessages.inner}>
         <h1 className={tkMessages.header}>Messages</h1>
         <div className={tkMessages.list}>
-          {conversations.length === 0 ? (
+          {isLoading ? (
+            <p className="py-8 text-center text-sm text-tk-muted">Loading…</p>
+          ) : conversations.length === 0 ? (
             <p className="py-8 text-center text-sm text-tk-muted">
               You have 0 message conversations
             </p>
