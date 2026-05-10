@@ -175,4 +175,10 @@ export const tkYou = {
 
   signOutButton:
     "w-full py-1 text-left text-[15px] font-medium text-tk-muted transition hover:text-tk-forest",
+
+  myPostsNavLink:
+    "flex w-full items-center gap-3 rounded-3xl border border-tk-border bg-tk-card p-4 text-left shadow-sm shadow-black/[0.03] outline-none transition hover:bg-tk-cream-deep/25 focus-visible:ring-2 focus-visible:ring-tk-terracotta/25 active:bg-tk-cream-deep/35",
+
+  myPostsNavIconWrap:
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-tk-cream-deep text-tk-forest",
 } as const;

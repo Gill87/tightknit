@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightIcon,
@@ -8,6 +10,7 @@ import {
   ClockIcon,
   GearIcon,
   GiftIcon,
+  ListPostsIcon,
   LogOutIcon,
   PinIcon,
 } from "./components/icons";
@@ -168,6 +171,8 @@ function sendGiftLabelMinutes(mins: number): string {
 }
 
 export default function YouPage() {
+  const router = useRouter();
+  const [signOutLoading, setSignOutLoading] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState(5);
   const [giftOpen, setGiftOpen] = useState(false);
   const [giftMinutes, setGiftMinutes] = useState(60);
@@ -481,6 +486,19 @@ export default function YouPage() {
     setGiftSearchResults([]);
   }
 
+  async function handleSignOut() {
+    if (signOutLoading) return;
+    setSignOutLoading(true);
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.signOut();
+    setSignOutLoading(false);
+    if (error) {
+      console.error("Sign out failed:", error.message);
+    }
+    router.replace("/auth/sign-in");
+    router.refresh();
+  }
+
   return (
     <div className={tkYou.shell}>
       <main className={tkYou.main}>
@@ -509,6 +527,24 @@ export default function YouPage() {
               </p>
             </div>
           </div>
+        </section>
+
+        <section aria-labelledby="myposts-heading">
+          <h2 id="myposts-heading" className="sr-only">
+            Your posts
+          </h2>
+          <Link href="/you/myposts" className={tkYou.myPostsNavLink}>
+            <span className={tkYou.myPostsNavIconWrap} aria-hidden>
+              <ListPostsIcon className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className={tkYou.giftTitle}>My posts</span>
+              <span className={tkYou.giftSub}>
+                View, edit, or delete your requests
+              </span>
+            </span>
+            <ChevronRightIcon className={tkYou.giftChevron} />
+          </Link>
         </section>
 
         <section aria-labelledby="history-heading">
@@ -783,8 +819,13 @@ export default function YouPage() {
               <span className={tkYou.settingsIconWrap}>
                 <LogOutIcon />
               </span>
-              <button type="button" className={tkYou.signOutButton}>
-                Sign out
+              <button
+                type="button"
+                className={tkYou.signOutButton}
+                disabled={signOutLoading}
+                onClick={() => void handleSignOut()}
+              >
+                {signOutLoading ? "Signing out…" : "Sign out"}
               </button>
             </div>
           </div>

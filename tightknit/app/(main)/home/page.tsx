@@ -62,8 +62,16 @@ function haversine(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function hourBalanceToNumber(raw: unknown): number {
+  if (raw == null) return 0;
+  const n =
+    typeof raw === "string" ? parseFloat(raw) : Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function HomePage() {
-  const [balance, setBalance] = useState<number>(3);
+  /** `null` until the first profile fetch resolves — avoids flashing a placeholder hour count */
+  const [balance, setBalance] = useState<number | null>(null);
   const [listings, setListings] = useState<FeedItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -73,7 +81,10 @@ export default function HomePage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
     const [{ data: profile }, { data: rawListings }] = await Promise.all([
       supabase
@@ -88,7 +99,7 @@ export default function HomePage() {
         .order("created_at", { ascending: false }),
     ]);
 
-    if (profile?.hour_balance != null) setBalance(profile.hour_balance);
+    setBalance(hourBalanceToNumber(profile?.hour_balance));
 
     if (rawListings?.length) {
       const items: FeedItem[] = rawListings.map((l: RawListing) => {
@@ -141,9 +152,23 @@ export default function HomePage() {
             <p id="balance-heading" className={tkHome.balanceLabel}>
               Your balance
             </p>
-            <p className={tkHome.balanceValue}>{balance} hours</p>
+            <p className={tkHome.balanceValue} aria-live="polite">
+              {balance === null ? (
+                <span className="text-tk-muted" aria-busy="true">
+                  …
+                </span>
+              ) : (
+                `${balance} hours`
+              )}
+            </p>
             <p className={tkHome.balanceHint}>
-              You have {balance} hours to spend or share with neighbors.
+              {balance === null ? (
+                <span className="text-tk-muted">Loading your balance…</span>
+              ) : (
+                <>
+                  You have {balance} hours to spend or share with neighbors.
+                </>
+              )}
             </p>
           </section>
 
