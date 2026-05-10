@@ -21,7 +21,7 @@ export const helperLink = 'text-[var(--color-primary)]'
 
 // Input
 export const inputWrapper = 'relative'
-export const inputBase = 'w-full py-[14px] px-4 rounded-2xl bg-[var(--color-surface)] text-sm text-[var(--color-text)] placeholder:text-[var(--color-muted)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-shadow'
+export const inputBase = 'w-full py-[14px] px-4 rounded-2xl bg-[var(--color-surface)] text-base text-[var(--color-text)] placeholder:text-[var(--color-muted)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-shadow'
 export const inputWithToggle = 'pr-11'
 export const toggleBtn = 'absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors'
 
