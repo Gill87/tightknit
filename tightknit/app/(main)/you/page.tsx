@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRightIcon,
@@ -170,6 +171,8 @@ function sendGiftLabelMinutes(mins: number): string {
 }
 
 export default function YouPage() {
+  const router = useRouter();
+  const [signOutLoading, setSignOutLoading] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState(5);
   const [giftOpen, setGiftOpen] = useState(false);
   const [giftMinutes, setGiftMinutes] = useState(60);
@@ -481,6 +484,19 @@ export default function YouPage() {
     setSelectedRecipient(null);
     setGiftSearchQuery("");
     setGiftSearchResults([]);
+  }
+
+  async function handleSignOut() {
+    if (signOutLoading) return;
+    setSignOutLoading(true);
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.signOut();
+    setSignOutLoading(false);
+    if (error) {
+      console.error("Sign out failed:", error.message);
+    }
+    router.replace("/auth/sign-in");
+    router.refresh();
   }
 
   return (
@@ -803,8 +819,13 @@ export default function YouPage() {
               <span className={tkYou.settingsIconWrap}>
                 <LogOutIcon />
               </span>
-              <button type="button" className={tkYou.signOutButton}>
-                Sign out
+              <button
+                type="button"
+                className={tkYou.signOutButton}
+                disabled={signOutLoading}
+                onClick={() => void handleSignOut()}
+              >
+                {signOutLoading ? "Signing out…" : "Sign out"}
               </button>
             </div>
           </div>
