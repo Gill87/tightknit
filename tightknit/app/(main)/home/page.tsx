@@ -3,87 +3,15 @@
 import Link from "next/link";
 import { tkHome } from "./formStyles";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ChevronRightIcon, ClockIcon, PinIcon } from "./components/icons";
-import { getSupabase } from "@/lib/supabase/client";
+import { MOCK_REQUESTS } from "@/app/(main)/_data/requests";
 
 type FilterId = "all" | "nearby" | "quick";
 
-type RequestItem = {
-  id: string;
-  initials: string;
-  name: string;
-  postedAgo: string;
-  task: string;
-  distance: string;
-  durationMins: number;
-  nearbyOnly?: boolean;
-};
-
 const STARTING_HOURS = 3;
-
-// Fix me: Update once real posts can be made
-const MOCK_REQUESTS: RequestItem[] = [
-  {
-    id: "1",
-    initials: "S",
-    name: "Sarah K.",
-    postedAgo: "4m ago",
-    task: "Need help carrying groceries up 3 flights",
-    distance: "2 doors down",
-    durationMins: 30,
-    nearbyOnly: true,
-  },
-  {
-    id: "2",
-    initials: "M",
-    name: "Marcus T.",
-    postedAgo: "15m ago",
-    task: "Can someone walk my dog this afternoon?",
-    distance: "0.3 mi away",
-    durationMins: 45,
-    nearbyOnly: true,
-  },
-  {
-    id: "3",
-    initials: "P",
-    name: "Priya D.",
-    postedAgo: "1h ago",
-    task: "Looking for help assembling a bookshelf",
-    distance: "0.8 mi away",
-    durationMins: 90,
-    nearbyOnly: false,
-  },
-  {
-    id: "4",
-    initials: "J",
-    name: "Jordan L.",
-    postedAgo: "2h ago",
-    task: "Pick up a package from the lobby",
-    distance: "Same building",
-    durationMins: 15,
-    nearbyOnly: true,
-  },
-  {
-    id: "5",
-    initials: "A",
-    name: "Alex R.",
-    postedAgo: "3h ago",
-    task: "Garden weeding — tools provided",
-    distance: "1.1 mi away",
-    durationMins: 120,
-    nearbyOnly: false,
-  },
-];
 
 export default function HomePage() {
   const [filter, setFilter] = useState<FilterId>("all");
-  const router = useRouter();
-
-  async function handleSignOut() {
-    await getSupabase().auth.signOut();
-    router.push("/auth/sign-in");
-  }
 
   const filtered = useMemo(() => {
     if (filter === "all") return MOCK_REQUESTS;
@@ -102,18 +30,9 @@ export default function HomePage() {
   return (
     <div className={tkHome.shell}>
       <main className={tkHome.main}>
-        <header className="flex items-start justify-between">
-          <div className={tkHome.headerStack}>
-            <p className={tkHome.headerEyebrow}>Tightknit</p>
-            <h1 className={tkHome.headerTitle}>Home</h1>
-          </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="mt-1 rounded-full border border-tk-border bg-tk-cream-deep px-3 py-1 text-xs font-medium text-tk-muted transition hover:bg-white hover:text-tk-forest"
-          >
-            Sign out
-          </button>
+        <header className={tkHome.headerStack}>
+          <p className={tkHome.headerEyebrow}>Tightknit</p>
+          <h1 className={tkHome.headerTitle}>Home</h1>
         </header>
 
         <section
@@ -171,7 +90,10 @@ export default function HomePage() {
           <ul className={tkHome.feedList}>
             {filtered.map((req) => (
               <li key={req.id}>
-                <button type="button" className={tkHome.requestCard}>
+                <Link
+                  href={`/request/${req.id}`}
+                  className={tkHome.requestCard}
+                >
                   <div className={tkHome.requestAvatar} aria-hidden>
                     {req.initials}
                   </div>
@@ -197,7 +119,7 @@ export default function HomePage() {
                       </span>
                     </div>
                   </div>
-                </button>
+                </Link>
               </li>
             ))}
           </ul>
