@@ -3,8 +3,24 @@
 import { useState } from "react";
 import { tkRoom } from "../../formStyles";
 
-export function MessageInput({ placeholder }: { placeholder: string }) {
+export function MessageInput({
+  placeholder,
+  onSend,
+}: {
+  placeholder: string;
+  onSend: (text: string) => Promise<void>;
+}) {
   const [value, setValue] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    const trimmed = value.trim();
+    if (!trimmed || sending) return;
+    setSending(true);
+    setValue("");
+    await onSend(trimmed);
+    setSending(false);
+  };
 
   return (
     <div className={tkRoom.inputBar}>
@@ -13,12 +29,19 @@ export function MessageInput({ placeholder }: { placeholder: string }) {
         placeholder={placeholder}
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+          }
+        }}
         aria-label="Message input"
       />
       <button
         className={tkRoom.sendBtn}
+        onClick={handleSend}
+        disabled={!value.trim() || sending}
         aria-label="Send message"
-        disabled={!value.trim()}
       >
         <svg
           width="18"

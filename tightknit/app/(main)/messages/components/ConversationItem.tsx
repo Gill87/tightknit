@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { tkMessages } from "../formStyles";
 
 export type Conversation = {
   id: string;
+  roomId: string;
   participantName: string;
   lastMessage: string;
   timestamp: string;
@@ -18,7 +20,7 @@ export function ConversationItem({
   const initial = conversation.participantName.charAt(0).toUpperCase();
 
   return (
-    <div className={tkMessages.row}>
+    <Link href={`/messages/${conversation.roomId}`} className={tkMessages.row}>
       <div className={tkMessages.avatarWrap}>
         <div className={tkMessages.avatar(index)}>{initial}</div>
         {conversation.unreadCount > 0 && (
@@ -32,6 +34,6 @@ export function ConversationItem({
         </div>
         <p className={tkMessages.preview}>{conversation.lastMessage}</p>
       </div>
-    </div>
+    </Link>
   );
 }

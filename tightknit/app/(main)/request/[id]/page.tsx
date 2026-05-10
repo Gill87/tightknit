@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase/client";
 import {
   CalendarIcon,
@@ -22,6 +23,7 @@ type RequestData = {
   durationMins: number;
   address: string;
   scheduledFor: string;
+  requesterId: string;
 };
 
 function getInitials(name: string): string {
@@ -112,9 +114,46 @@ export default function RequestDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [data, setData] = useState<RequestData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [missing, setMissing] = useState(false);
+  const [helpLoading, setHelpLoading] = useState(false);
+
+  const handleHelp = async () => {
+    if (!data) return;
+    setHelpLoading(true);
+    try {
+      const supabase = getSupabase();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const sortedIds = [user.id, data.requesterId].sort();
+      const roomId = `listing_${id}_${sortedIds[0]}_${sortedIds[1]}`;
+
+      const { data: existing } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("sender_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!existing) {
+        await supabase.from("messages").insert({
+          room_id: roomId,
+          sender_id: user.id,
+          content: "Hey there, I want to help you out",
+        });
+      }
+
+      router.push(`/messages/${roomId}`);
+    } finally {
+      setHelpLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function load() {
@@ -162,6 +201,7 @@ export default function RequestDetailPage({
         durationMins: listing.duration_minutes,
         address,
         scheduledFor: formatNeededBy(listing.needed_by),
+        requesterId: listing.posted_by,
       });
       setIsLoading(false);
     }
@@ -242,16 +282,16 @@ export default function RequestDetailPage({
           </div>
         </section>
 
-        <button type="button" className={tkRequest.primaryCta}>
-          <span>I can help</span>
+        <button
+          type="button"
+          className={tkRequest.primaryCta}
+          onClick={handleHelp}
+          disabled={helpLoading}
+        >
+          <span>{helpLoading ? "Opening…" : "I can help"}</span>
           <span className={tkRequest.emojiInline} aria-hidden>
             🙌
           </span>
-        </button>
-
-        <button type="button" className={tkRequest.secondaryCta}>
-          <ChatIcon />
-          <span>Message {firstName}</span>
         </button>
       </main>
     </div>
