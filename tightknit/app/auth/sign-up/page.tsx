@@ -8,7 +8,9 @@ import Input from '@/app/auth/components/Input'
 import Button from '@/app/auth/components/Button'
 import {
   signUpPage,
+  signUpPageCentered,
   pageInner,
+  pageInnerCentered,
   headerSection,
   logoRow,
   appTitle,
@@ -68,8 +70,8 @@ export default function SignUpPage() {
 
   if (success) {
     return (
-      <div className={signUpPage}>
-        <div className={pageInner}>
+      <div className={signUpPageCentered}>
+        <div className={pageInnerCentered}>
           <div className={logoRow}>
             <span>🧵</span>
             <h1 className={appTitle}>Tightknit</h1>

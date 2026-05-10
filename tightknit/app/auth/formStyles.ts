@@ -1,6 +1,8 @@
 // Page layout
 export const signUpPage = 'min-h-[100svh] bg-[var(--color-bg)]'
+export const signUpPageCentered = 'min-h-[100svh] bg-[var(--color-bg)] flex items-center justify-center'
 export const pageInner = 'max-w-md mx-auto w-full px-6 pt-12 pb-10'
+export const pageInnerCentered = 'max-w-md mx-auto w-full px-6 py-10 flex flex-col items-center text-center gap-3'
 
 // Header
 export const headerSection = 'mb-8'
