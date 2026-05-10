@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { tkFooter } from "./formStyles";
 import { AskNavIcon, HomeNavIcon, MessagesNavIcon, YouNavIcon } from "./components/icons";
@@ -14,6 +15,17 @@ const tabs = [
 
 export function Footer() {
   const pathname = usePathname();
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const check = () => setKeyboardOpen(vv.height < window.innerHeight * 0.75);
+    vv.addEventListener("resize", check);
+    return () => vv.removeEventListener("resize", check);
+  }, []);
+
+  if (keyboardOpen) return null;
 
   return (
     <nav className={tkFooter.bar} aria-label="Main navigation">

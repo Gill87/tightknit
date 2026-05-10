@@ -64,7 +64,7 @@ export const tkRoom = {
   inputBar:
     "sticky bottom-0 flex items-center gap-3 px-4 py-3 border-t border-tk-border bg-tk-cream pb-[max(0.75rem,env(safe-area-inset-bottom))]",
   inputField:
-    "flex-1 rounded-full border border-tk-border bg-tk-cream-deep/50 px-4 py-2.5 text-[15px] text-tk-forest placeholder:text-tk-muted outline-none focus:border-tk-forest/30 transition-colors",
+    "flex-1 rounded-full border border-tk-border bg-tk-cream-deep/50 px-4 py-2.5 text-base text-tk-forest placeholder:text-tk-muted outline-none focus:border-tk-forest/30 transition-colors",
   sendBtn:
     "h-10 w-10 shrink-0 rounded-full bg-tk-forest flex items-center justify-center active:bg-tk-forest-soft transition-colors",
 };
