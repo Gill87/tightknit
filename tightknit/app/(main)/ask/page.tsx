@@ -62,7 +62,7 @@ export default function AskPage() {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("lat, lng")
+      .select("lat, lng, full_name")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -84,6 +84,7 @@ export default function AskPage() {
 
     const { error: insertError } = await supabase.from("listings").insert({
       posted_by: user.id,
+      posted_by_name: profile?.full_name || null,
       description: need.trim(),
       duration_minutes: durationMins,
       needed_by: neededDay,

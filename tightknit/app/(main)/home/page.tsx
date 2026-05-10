@@ -11,16 +11,12 @@ type FilterId = "all" | "nearby" | "quick";
 type RawListing = {
   id: string;
   posted_by: string;
+  posted_by_name: string | null;
   created_at: string;
   description: string;
   duration_minutes: number;
   lat: number | null;
   lng: number | null;
-};
-
-type RawPoster = {
-  id: string;
-  full_name: string | null;
 };
 
 type FeedItem = {
@@ -98,17 +94,8 @@ export default function HomePage() {
       if (profile?.hour_balance != null) setBalance(profile.hour_balance);
 
       if (rawListings?.length) {
-        const posterIds = [...new Set(rawListings.map((l: RawListing) => l.posted_by))];
-        const { data: posters } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", posterIds);
-        const profileMap = Object.fromEntries(
-          (posters ?? []).map((p: RawPoster) => [p.id, p])
-        );
-
         const items: FeedItem[] = rawListings.map((l: RawListing) => {
-          const fullName = profileMap[l.posted_by]?.full_name ?? "Neighbor";
+          const fullName = l.posted_by_name || "Neighbor";
           let distance = "Nearby";
           let nearbyOnly = true;
           if (profile?.lat && profile?.lng && l.lat && l.lng) {

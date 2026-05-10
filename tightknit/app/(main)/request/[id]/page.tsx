@@ -140,13 +140,7 @@ export default function RequestDetailPage({
         return;
       }
 
-      const { data: poster } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", listing.posted_by)
-        .single();
-
-      const fullName = poster?.full_name ?? "Neighbor";
+      const fullName = listing.posted_by_name || "Neighbor";
 
       let distance = "Nearby";
       if (myProfile?.lat && myProfile?.lng && listing.lat && listing.lng) {
