@@ -22,7 +22,7 @@ export default function RoomPage({
 }) {
   const { room_id } = use(params);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [participantName, setParticipantName] = useState("...");
+  const [participantName, setParticipantName] = useState("Neighbor");
   const [subtitle, setSubtitle] = useState("");
 
   useEffect(() => {
@@ -39,24 +39,46 @@ export default function RoomPage({
       const [, listingId, ...userIds] = room_id.split("_");
       const otherUserId = userIds.find((uid) => uid !== user.id) ?? userIds[0];
 
-      const [{ data: listing }, { data: profile }] = await Promise.all([
+      const [
+        { data: listing, error: listingErr },
+        { data: profile, error: profileErr },
+      ] = await Promise.all([
         supabase
           .from("listings")
-          .select("description")
+          .select("posted_by, posted_by_name, description")
           .eq("id", listingId)
           .single(),
         supabase
           .from("profiles")
-          .select("name")
+          .select("full_name")
           .eq("id", otherUserId)
           .single(),
       ]);
+      if (listingErr) console.warn("[chat] listing fetch error", listingErr);
+      if (profileErr) console.warn("[chat] profile fetch error", profileErr);
 
-      if (profile?.name) setParticipantName(profile.name);
       if (listing?.description) {
         const desc = listing.description as string;
         setSubtitle(`re: ${desc.length > 35 ? desc.slice(0, 35) + "…" : desc}`);
       }
+
+      const postedName = (listing?.posted_by_name ?? "").trim();
+      const profileName = (profile?.full_name ?? "").trim();
+      const currentIsPoster = !!listing && user.id === listing.posted_by;
+      const name = currentIsPoster
+        ? profileName || "Neighbor"
+        : postedName || profileName || "Neighbor";
+      if (name === "Neighbor") {
+        console.warn("[chat] no name resolved", {
+          listingId,
+          otherUserId,
+          postedName,
+          profileName,
+          currentIsPoster,
+          listingFound: !!listing,
+        });
+      }
+      setParticipantName(name);
     }
     init();
   }, [room_id]);
