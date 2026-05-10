@@ -15,6 +15,10 @@ type RawListing = {
   duration_minutes: number;
   lat: number | null;
   lng: number | null;
+  /** `listing_status` enum: home feed only shows `open` */
+  status: string;
+  claimed_by: string | null;
+  completed_at: string | null;
 };
 
 type FeedItem = {
@@ -69,6 +73,14 @@ function hourBalanceToNumber(raw: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Open requests only — excludes `claimed` / `completed` status and picked-up or finished rows. */
+function isOpenFeedListing(l: RawListing): boolean {
+  if (String(l.status ?? "").toLowerCase() !== "open") return false;
+  if (l.claimed_by != null) return false;
+  if (l.completed_at != null) return false;
+  return true;
+}
+
 export default function HomePage() {
   /** `null` until the first profile fetch resolves — avoids flashing a placeholder hour count */
   const [balance, setBalance] = useState<number | null>(null);
@@ -96,13 +108,17 @@ export default function HomePage() {
         .from("listings")
         .select("*")
         .eq("status", "open")
+        .is("claimed_by", null)
+        .is("completed_at", null)
         .order("created_at", { ascending: false }),
     ]);
 
     setBalance(hourBalanceToNumber(profile?.hour_balance));
 
     const visibleListings =
-      rawListings?.filter((l: RawListing) => l.posted_by !== user.id) ?? [];
+      rawListings?.filter(
+        (l: RawListing) => l.posted_by !== user.id && isOpenFeedListing(l),
+      ) ?? [];
 
     if (visibleListings.length) {
       const items: FeedItem[] = visibleListings.map((l: RawListing) => {
