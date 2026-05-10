@@ -98,7 +98,7 @@ export default function AskPage() {
       return;
     }
 
-    router.push("/home");
+    router.push("/ask/success");
   }
 
   return (

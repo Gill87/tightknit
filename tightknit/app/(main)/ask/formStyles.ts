@@ -86,4 +86,12 @@ export const tkAsk = {
     "cursor-not-allowed opacity-50 hover:bg-tk-cream-deep active:scale-100",
 
   submitError: "text-center text-sm font-medium text-red-700",
+
+  successIconWrap:
+    "mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-tk-blush text-tk-terracotta",
+
+  successBody: "text-center text-[15px] leading-relaxed text-tk-muted",
+
+  secondaryLink:
+    "block w-full rounded-full border border-tk-border bg-transparent py-4 text-center text-base font-semibold text-tk-forest transition hover:bg-tk-cream-deep active:scale-[0.99]",
 } as const;
