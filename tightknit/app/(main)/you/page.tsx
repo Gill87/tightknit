@@ -106,23 +106,17 @@ function firstNameFromFull(full: string): string {
   return first.replace(/\.$/, "");
 }
 
-type NeighborOption = {
+type GiftRecipientOption = {
   id: string;
-  initials: string;
-  name: string;
+  username: string | null;
+  full_name: string | null;
 };
-
-const MOCK_NEIGHBORS: NeighborOption[] = [
-  { id: "sarah", initials: "S", name: "Sarah K." },
-  { id: "marcus", initials: "M", name: "Marcus T." },
-  { id: "priya", initials: "P", name: "Priya D." },
-  { id: "james", initials: "J", name: "James L." },
-];
 
 const RADIUS_MIN = 1;
 const RADIUS_MAX = 10;
 const RADIUS_STEP = 0.25;
 const RADIUS_SAVE_DEBOUNCE_MS = 450;
+const GIFT_SEARCH_DEBOUNCE_MS = 320;
 
 /** Postgres `numeric` often arrives as a string in the browser */
 function parseRadiusMilesDb(raw: unknown): number | null {
@@ -176,8 +170,17 @@ function sendGiftLabelMinutes(mins: number): string {
 export default function YouPage() {
   const [radiusMiles, setRadiusMiles] = useState(5);
   const [giftOpen, setGiftOpen] = useState(false);
-  const [giftNeighborId, setGiftNeighborId] = useState(MOCK_NEIGHBORS[0]!.id);
   const [giftMinutes, setGiftMinutes] = useState(60);
+  const [giftSearchQuery, setGiftSearchQuery] = useState("");
+  const [giftSearchDebounced, setGiftSearchDebounced] = useState("");
+  const [giftSearchResults, setGiftSearchResults] = useState<
+    GiftRecipientOption[]
+  >([]);
+  const [giftSearchLoading, setGiftSearchLoading] = useState(false);
+  const [selectedRecipient, setSelectedRecipient] =
+    useState<GiftRecipientOption | null>(null);
+  const [giftSending, setGiftSending] = useState(false);
+  const [giftError, setGiftError] = useState<string | null>(null);
 
   const [displayName, setDisplayName] = useState("");
   const [usernameHandle, setUsernameHandle] = useState("");
@@ -189,9 +192,54 @@ export default function YouPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const sessionUserIdRef = useRef<string | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const radiusSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** True after the user moves the slider; avoids profile fetch overwriting local value */
   const radiusDirtyRef = useRef(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setGiftSearchDebounced(giftSearchQuery);
+    }, GIFT_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [giftSearchQuery]);
+
+  useEffect(() => {
+    if (!giftOpen) return;
+    const q = giftSearchDebounced.trim();
+    let cancelled = false;
+
+    async function runSearch() {
+      if (q.length === 0) {
+        await Promise.resolve();
+        if (cancelled) return;
+        setGiftSearchResults([]);
+        setGiftSearchLoading(false);
+        return;
+      }
+
+      setGiftSearchLoading(true);
+      const supabase = getSupabase();
+      const { data, error } = await supabase.rpc(
+        "search_profiles_by_username",
+        { search_query: q },
+      );
+      if (cancelled) return;
+      setGiftSearchLoading(false);
+      if (error) {
+        console.error("Neighbor search failed:", error.message);
+        setGiftSearchResults([]);
+        return;
+      }
+      const rows = (data ?? []) as GiftRecipientOption[];
+      setGiftSearchResults(rows);
+    }
+
+    void runSearch();
+    return () => {
+      cancelled = true;
+    };
+  }, [giftSearchDebounced, giftOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +252,7 @@ export default function YouPage() {
 
       if (!user) {
         sessionUserIdRef.current = null;
+        setSessionUserId(null);
         radiusDirtyRef.current = false;
         if (!cancelled) {
           setHistory([]);
@@ -213,6 +262,7 @@ export default function YouPage() {
       }
 
       sessionUserIdRef.current = user.id;
+      setSessionUserId(user.id);
 
       const meta = user.user_metadata as Record<string, string | undefined>;
       const fallbackName = meta?.name?.trim() ?? "";
@@ -377,7 +427,11 @@ export default function YouPage() {
   );
 
   const canSendGift =
-    giftMinutes >= GIFT_STEP_MINUTES && giftMinutes <= balanceMinutes;
+    !!sessionUserId &&
+    !!selectedRecipient &&
+    giftMinutes >= GIFT_STEP_MINUTES &&
+    giftMinutes <= balanceMinutes &&
+    !giftSending;
 
   const bumpGiftMinutes = (delta: number) => {
     setGiftMinutes((m) => {
@@ -385,6 +439,47 @@ export default function YouPage() {
       return Math.min(balanceMinutes, Math.max(GIFT_STEP_MINUTES, next));
     });
   };
+
+  async function handleSendGift() {
+    const uid = sessionUserIdRef.current;
+    if (!uid || !selectedRecipient) {
+      setGiftError(
+        uid ? "Pick a neighbor to gift." : "Sign in to gift hours.",
+      );
+      return;
+    }
+
+    const giftHours = giftMinutes / 60;
+    setGiftSending(true);
+    setGiftError(null);
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase.rpc("gift_hours", {
+      recipient_id: selectedRecipient.id,
+      gift_hours: giftHours,
+    });
+
+    setGiftSending(false);
+
+    if (error) {
+      setGiftError(
+        error.message || "Could not send hours. Try again.",
+      );
+      return;
+    }
+
+    const mins = hourBalanceToMinutes(data);
+    setBalanceMinutes(mins);
+    setGiftMinutes((m) =>
+      Math.min(
+        Math.max(m, GIFT_STEP_MINUTES),
+        Math.max(mins, GIFT_STEP_MINUTES),
+      ),
+    );
+    setSelectedRecipient(null);
+    setGiftSearchQuery("");
+    setGiftSearchResults([]);
+  }
 
   return (
     <div className={tkYou.shell}>
@@ -504,36 +599,87 @@ export default function YouPage() {
                 aria-labelledby="gift-hours-trigger"
                 className={tkYou.giftPanel}
               >
-                <p className={tkYou.giftFieldLabel}>Pick a neighbor</p>
-                <div className={tkYou.giftNeighborGrid}>
-                  {MOCK_NEIGHBORS.map((n) => {
-                    const selected = giftNeighborId === n.id;
-                    return (
-                      <button
-                        key={n.id}
-                        type="button"
-                        onClick={() => setGiftNeighborId(n.id)}
-                        className={cn(
-                          tkYou.giftNeighborChip,
-                          selected
-                            ? tkYou.giftNeighborChipOn
-                            : tkYou.giftNeighborChipOff,
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            tkYou.giftNeighborAvatar,
-                            selected && tkYou.giftNeighborAvatarOn,
-                          )}
-                          aria-hidden
-                        >
-                          {n.initials}
-                        </span>
-                        <span className="min-w-0 truncate">{n.name}</span>
-                      </button>
-                    );
-                  })}
+                <label htmlFor="gift-recipient-search" className={tkYou.giftFieldLabel}>
+                  Find a neighbor by username
+                </label>
+                <div className={tkYou.giftSearchWrap}>
+                  <input
+                    id="gift-recipient-search"
+                    type="search"
+                    autoComplete="off"
+                    placeholder="Search @username"
+                    value={giftSearchQuery}
+                    onChange={(e) => {
+                      setGiftSearchQuery(e.target.value);
+                      setSelectedRecipient(null);
+                      setGiftError(null);
+                    }}
+                    className={tkYou.giftSearchInput}
+                  />
+                  {giftSearchQuery.trim().length > 0 ? (
+                    <div
+                      className={tkYou.giftSearchResults}
+                      role="listbox"
+                      aria-label="Matching neighbors"
+                    >
+                      {giftSearchLoading ? (
+                        <p className={tkYou.giftSearchEmpty}>Searching…</p>
+                      ) : giftSearchResults.length === 0 ? (
+                        <p className={tkYou.giftSearchEmpty}>No matches</p>
+                      ) : (
+                        giftSearchResults.map((r) => {
+                          const fn = r.full_name?.trim();
+                          const un = r.username?.trim();
+                          const label =
+                            fn || (un ? `@${un}` : "Neighbor");
+                          const initials = initialsFromName(
+                            fn || un || "?",
+                          );
+                          const selected =
+                            selectedRecipient?.id === r.id;
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              role="option"
+                              aria-selected={selected}
+                              onClick={() => {
+                                setSelectedRecipient(r);
+                                setGiftSearchQuery(un ? `@${un}` : "");
+                                setGiftError(null);
+                              }}
+                              className={tkYou.giftSearchResultBtn}
+                            >
+                              <span
+                                className={cn(
+                                  tkYou.giftNeighborAvatar,
+                                  selected && tkYou.giftNeighborAvatarOn,
+                                )}
+                                aria-hidden
+                              >
+                                {initials}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-medium text-tk-forest">
+                                  {label}
+                                </span>
+                                {fn && un ? (
+                                  <span className="block truncate text-xs text-tk-muted">
+                                    @{un}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  ) : null}
                 </div>
+                <p className={tkYou.giftSearchHint}>
+                  Choose someone from the list—hours send only to the selected
+                  profile.
+                </p>
 
                 <div className={tkYou.giftStepperSection}>
                   <p className={tkYou.giftFieldLabel}>How long?</p>
@@ -571,10 +717,23 @@ export default function YouPage() {
                   type="button"
                   disabled={!canSendGift}
                   className={tkYou.giftSendBtn}
+                  onClick={() => void handleSendGift()}
                 >
-                  {sendGiftLabelMinutes(giftMinutes)}
-                  <ArrowRightIcon className="shrink-0 opacity-90" />
+                  {giftSending ? (
+                    "Sending…"
+                  ) : (
+                    <>
+                      {sendGiftLabelMinutes(giftMinutes)}
+                      <ArrowRightIcon className="shrink-0 opacity-90" />
+                    </>
+                  )}
                 </button>
+
+                {giftError ? (
+                  <p className={tkYou.giftErrorText} role="alert">
+                    {giftError}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
