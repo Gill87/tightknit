@@ -15,7 +15,6 @@ import {
 import { cn, tkYou } from "./formStyles";
 import { getSupabase } from "@/lib/supabase/client";
 
-const EXCHANGE_COUNT = 5;
 /** Fallback when `profiles.hour_balance` is missing (numeric hours in DB) */
 const DEFAULT_HOUR_BALANCE = 3;
 const GIFT_STEP_MINUTES = 30;
@@ -62,40 +61,51 @@ type HistoryEntry = {
   emoji: string;
   title: string;
   detail: string;
-  /** Signed hours; positive = received, negative = spent */
+  /** Hours credited when you completed helping (always positive for this feed) */
   deltaHours: number;
 };
 
-const MOCK_HISTORY: HistoryEntry[] = [
-  {
-    id: "1",
-    emoji: "👏",
-    title: "Carried groceries up",
-    detail: "with Sarah K. · Today",
-    deltaHours: 0.5,
-  },
-  {
-    id: "2",
-    emoji: "🤷",
-    title: "Fixed my leaky faucet",
-    detail: "with Marcus T. · Yesterday",
-    deltaHours: -1,
-  },
-  {
-    id: "3",
-    emoji: "👏",
-    title: "Helped with shelf setup",
-    detail: "with Priya D. · Mon",
-    deltaHours: 2,
-  },
-  {
-    id: "4",
-    emoji: "🤷",
-    title: "Baked bread for me",
-    detail: "with Yuki O. · Last week",
-    deltaHours: -1,
-  },
-];
+type CompletedListingRow = {
+  id: string;
+  description: string | null;
+  duration_minutes: number | null;
+  completed_at: string | null;
+  posted_by: string | null;
+};
+
+type PosterNameRow = {
+  id: string;
+  full_name: string | null;
+};
+
+function truncateListingTitle(text: string, maxLen = 72): string {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1)}…`;
+}
+
+/** Relative label for when the task was completed */
+function formatCompletedWhen(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const now = new Date();
+  const startToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  const startYesterday = startToday - 86400000;
+  const t = d.getTime();
+  if (t >= startToday) return "Today";
+  if (t >= startYesterday) return "Yesterday";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function firstNameFromFull(full: string): string {
+  const name = full.trim() || "Neighbor";
+  const first = name.split(/\s+/)[0] ?? name;
+  return first.replace(/\.$/, "");
+}
 
 type NeighborOption = {
   id: string;
@@ -168,6 +178,7 @@ export default function YouPage() {
     DEFAULT_HOUR_BALANCE * 60,
   );
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,7 +190,10 @@ export default function YouPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        if (!cancelled) setProfileLoaded(true);
+        if (!cancelled) {
+          setHistory([]);
+          setProfileLoaded(true);
+        }
         return;
       }
 
@@ -187,13 +201,68 @@ export default function YouPage() {
       const fallbackName = meta?.name?.trim() ?? "";
       const fallbackUsername = meta?.username?.trim() ?? "";
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, username, radius_miles, hour_balance")
-        .eq("id", user.id)
-        .maybeSingle();
+      const [{ data: profile }, { data: completedListings }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("full_name, username, radius_miles, hour_balance")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("listings")
+          .select("id, description, duration_minutes, completed_at, posted_by")
+          .eq("completed_by", user.id)
+          .not("completed_at", "is", null)
+          .order("completed_at", { ascending: false }),
+      ]);
 
       if (cancelled) return;
+
+      const listingRows = (completedListings ?? []) as CompletedListingRow[];
+
+      const posterIds = [
+        ...new Set(
+          listingRows
+            .map((row: CompletedListingRow) => row.posted_by)
+            .filter((id: string | null): id is string => !!id && id.length > 0),
+        ),
+      ];
+
+      let nameById: Record<string, string> = {};
+      if (posterIds.length > 0) {
+        const { data: posters } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", posterIds);
+        if (!cancelled && posters) {
+          const posterRows = posters as PosterNameRow[];
+          nameById = Object.fromEntries(
+            posterRows.map((p: PosterNameRow) => {
+              const fn = p.full_name != null ? String(p.full_name).trim() : "";
+              return [p.id, fn || "Neighbor"] as const;
+            }),
+          );
+        }
+      }
+
+      if (cancelled) return;
+
+      const entries: HistoryEntry[] = listingRows.map((row: CompletedListingRow) => {
+        const requester =
+          (row.posted_by && nameById[row.posted_by]) || "Neighbor";
+        const when = formatCompletedWhen(row.completed_at);
+        const mins = Number(row.duration_minutes) || 0;
+        const deltaHours = mins / 60;
+        return {
+          id: row.id,
+          emoji: "👏",
+          title: truncateListingTitle(
+            row.description?.trim() || "Helped a neighbor",
+          ),
+          detail: `with ${firstNameFromFull(requester)} · ${when}`,
+          deltaHours,
+        };
+      });
+      setHistory(entries);
 
       const row = profile as {
         full_name?: string | null;
@@ -293,34 +362,39 @@ export default function YouPage() {
               History
             </h2>
             <p className={tkYou.sectionMeta}>
-              {EXCHANGE_COUNT} exchanges
+              {profileLoaded
+                ? `${history.length} exchange${history.length === 1 ? "" : "s"}`
+                : "…"}
             </p>
           </div>
           <div className={tkYou.historyCard}>
-            <ul className="divide-y divide-tk-border/80">
-              {MOCK_HISTORY.map((row) => (
-                <li key={row.id}>
-                  <div className={tkYou.historyRow}>
-                    <span className={tkYou.historyEmoji} aria-hidden>
-                      {row.emoji}
-                    </span>
-                    <div className={tkYou.historyBody}>
-                      <p className={tkYou.historyTitle}>{row.title}</p>
-                      <p className={tkYou.historySub}>{row.detail}</p>
+            {!profileLoaded ? (
+              <p className="px-4 py-8 text-center text-sm text-tk-muted">…</p>
+            ) : history.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-tk-muted">
+                When you mark a request complete, the hours you earned show up
+                here.
+              </p>
+            ) : (
+              <ul className="divide-y divide-tk-border/80">
+                {history.map((row) => (
+                  <li key={row.id}>
+                    <div className={tkYou.historyRow}>
+                      <span className={tkYou.historyEmoji} aria-hidden>
+                        {row.emoji}
+                      </span>
+                      <div className={tkYou.historyBody}>
+                        <p className={tkYou.historyTitle}>{row.title}</p>
+                        <p className={tkYou.historySub}>{row.detail}</p>
+                      </div>
+                      <p className={tkYou.historyDeltaPlus}>
+                        {formatDeltaHours(row.deltaHours)}
+                      </p>
                     </div>
-                    <p
-                      className={
-                        row.deltaHours >= 0
-                          ? tkYou.historyDeltaPlus
-                          : tkYou.historyDeltaMinus
-                      }
-                    >
-                      {formatDeltaHours(row.deltaHours)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
 
