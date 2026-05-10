@@ -66,6 +66,7 @@ export default function LocationPage() {
   const [status, setStatus] = useState<LocationStatus>('pending')
   const [cityName, setCityName] = useState<string>('')
   const [radius, setRadius] = useState<number>(0.5)
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -74,7 +75,9 @@ export default function LocationPage() {
     }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const name = await reverseGeocode(pos.coords.latitude, pos.coords.longitude)
+        const { latitude, longitude } = pos.coords
+        setCoords({ lat: latitude, lng: longitude })
+        const name = await reverseGeocode(latitude, longitude)
         setCityName(name)
         setStatus('granted')
       },
@@ -181,7 +184,7 @@ export default function LocationPage() {
         )}
 
         {status === 'granted' && (
-          <button className={nextButton} onClick={() => router.push('/onboarding/superpowers')}>Next</button>
+          <button className={nextButton} onClick={() => router.push(`/onboarding/superpowers?lat=${coords!.lat}&lng=${coords!.lng}&radius=${radius}`)}>Next</button>
         )}
       </div>
     </main>

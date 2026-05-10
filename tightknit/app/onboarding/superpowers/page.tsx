@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase/client'
 import * as s from './formStyles'
 
@@ -16,11 +16,16 @@ const PRESETS = [
   'Carpentry',
 ]
 
-export default function SuperpowersPage() {
+function SuperpowersInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [value, setValue] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  const lat = searchParams.get('lat') ? Number(searchParams.get('lat')) : null
+  const lng = searchParams.get('lng') ? Number(searchParams.get('lng')) : null
+  const radiusMiles = searchParams.get('radius') ? Number(searchParams.get('radius')) : null
 
   function handlePreset(preset: string) {
     if (selected === preset) {
@@ -52,6 +57,9 @@ export default function SuperpowersPage() {
       phone: user.user_metadata?.phone ?? '',
       email: user.email ?? '',
       superpowers: value.trim(),
+      lat,
+      lng,
+      radius_miles: radiusMiles,
     })
 
     router.push('/home')
@@ -102,5 +110,13 @@ export default function SuperpowersPage() {
         </button>
       </div>
     </main>
+  )
+}
+
+export default function SuperpowersPage() {
+  return (
+    <Suspense>
+      <SuperpowersInner />
+    </Suspense>
   )
 }
