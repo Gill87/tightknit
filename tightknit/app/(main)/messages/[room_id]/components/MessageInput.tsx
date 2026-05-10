@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useFooter } from "@/app/(main)/FooterProvider";
 import { tkRoom } from "../../formStyles";
 
 export function MessageInput({
@@ -12,6 +13,8 @@ export function MessageInput({
 }) {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
+  const { setHidden } = useFooter();
+  useEffect(() => () => setHidden(false), [setHidden]);
 
   const handleSend = async () => {
     const trimmed = value.trim();
@@ -29,6 +32,8 @@ export function MessageInput({
         placeholder={placeholder}
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        onFocus={() => setHidden(true)}
+        onBlur={() => setHidden(false)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
