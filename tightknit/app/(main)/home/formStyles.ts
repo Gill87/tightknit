@@ -20,27 +20,22 @@ export const tkHome = {
 
   headerTitle: "text-lg font-semibold leading-snug text-tk-forest",
 
+  heroRow: "flex gap-3 items-stretch",
+
   balanceSection:
-    "rounded-3xl bg-tk-forest px-5 py-6 shadow-[var(--tk-shadow-balance)]",
+    "flex-[3] flex flex-col justify-between rounded-3xl bg-tk-forest px-4 py-5 shadow-[var(--tk-shadow-balance)]",
 
   balanceLabel: "text-sm text-tk-mint/95",
 
-  balanceValue: "mt-1 text-4xl font-semibold tracking-tight text-white",
+  balanceValue: "mt-1 text-3xl font-semibold tracking-tight text-white",
 
   balanceHint:
-    "mt-2 max-w-[260px] text-sm leading-relaxed text-tk-mint/90",
-
-  actionGrid: "grid grid-cols-2 gap-3",
+    "mt-2 text-xs leading-relaxed text-tk-mint/90",
 
   askHelpButton:
-    "flex aspect-square flex-col items-start justify-end gap-2 rounded-3xl bg-tk-terracotta px-4 pb-4 pt-5 text-left shadow-[var(--tk-shadow-cta)] transition hover:bg-tk-terracotta-hover active:scale-[0.98]",
+    "flex-[2] flex flex-col items-start justify-end gap-2 rounded-3xl bg-tk-terracotta px-4 pb-4 pt-5 text-left shadow-[var(--tk-shadow-cta)] transition hover:bg-tk-terracotta-hover active:scale-[0.98]",
 
   askHelpLabel: "text-base font-semibold leading-tight text-white",
-
-  offerHelpButton:
-    "flex aspect-square flex-col items-start justify-end gap-2 rounded-3xl border border-tk-border bg-tk-cream-deep px-4 pb-4 pt-5 text-left shadow-sm transition hover:bg-white active:scale-[0.98]",
-
-  offerHelpLabel: "text-base font-semibold leading-tight text-tk-forest",
 
   filterRow: "flex flex-wrap gap-2",
 

@@ -155,33 +155,27 @@ export default function HomePage() {
           <h1 className={tkHome.headerTitle}>Home</h1>
         </header>
 
-        <section
-          className={tkHome.balanceSection}
-          aria-labelledby="balance-heading"
-        >
-          <p id="balance-heading" className={tkHome.balanceLabel}>
-            Your balance
-          </p>
-          <p className={tkHome.balanceValue}>{balance} hours</p>
-          <p className={tkHome.balanceHint}>
-            You have {balance} hours to spend or share with neighbors.
-          </p>
-        </section>
+        <div className={tkHome.heroRow}>
+          <section
+            className={tkHome.balanceSection}
+            aria-labelledby="balance-heading"
+          >
+            <p id="balance-heading" className={tkHome.balanceLabel}>
+              Your balance
+            </p>
+            <p className={tkHome.balanceValue}>{balance} hours</p>
+            <p className={tkHome.balanceHint}>
+              You have {balance} hours to spend or share with neighbors.
+            </p>
+          </section>
 
-        <section className={tkHome.actionGrid}>
           <Link href="/ask" className={tkHome.askHelpButton}>
             <span className={tkHome.emojiLarge} aria-hidden>
               🙋
             </span>
             <span className={tkHome.askHelpLabel}>Ask for help</span>
           </Link>
-          <button type="button" className={tkHome.offerHelpButton}>
-            <span className={tkHome.emojiLarge} aria-hidden>
-              🙌
-            </span>
-            <span className={tkHome.offerHelpLabel}>Offer help</span>
-          </button>
-        </section>
+        </div>
 
         <section aria-label="Filter requests">
           <div className={tkHome.filterRow}>
