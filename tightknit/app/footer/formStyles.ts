@@ -9,7 +9,7 @@ export function cn(...classes: Array<string | false | undefined | null>) {
 
 export const tkFooter = {
   bar: cn(
-    "shrink-0 border-t border-tk-border bg-tk-cream",
+    "fixed inset-x-0 bottom-0 z-50 shrink-0 border-t border-tk-border bg-tk-cream",
     "pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2",
   ),
 

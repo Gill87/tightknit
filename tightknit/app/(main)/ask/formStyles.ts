@@ -84,4 +84,6 @@ export const tkAsk = {
 
   primaryButtonDisabled:
     "cursor-not-allowed opacity-50 hover:bg-tk-cream-deep active:scale-100",
+
+  submitError: "text-center text-sm font-medium text-red-700",
 } as const;

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getSupabase } from "@/lib/supabase/client";
 import { DatePickerField } from "./components/DatePickerField";
 import { ChevronLeftIcon } from "./components/icons";
 import { cn, tkAsk } from "./formStyles";
@@ -28,16 +30,76 @@ function todayIsoDate(): string {
 }
 
 export default function AskPage() {
+  const router = useRouter();
   const [need, setNeed] = useState("");
   const [durationMins, setDurationMins] = useState(60);
   const [neededDay, setNeededDay] = useState<string>(() => todayIsoDate());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const canSubmit = need.trim().length > 0 && neededDay.length > 0;
+  const canSubmit = need.trim().length > 0 && neededDay.length > 0 && !isSubmitting;
 
   const durationLabel = useMemo(
     () => formatDurationLabel(durationMins),
     [durationMins],
   );
+
+  async function handlePostRequest() {
+    if (isSubmitting) return;
+    if (!need.trim() || !neededDay.length) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    const supabase = getSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setIsSubmitting(false);
+      setSubmitError("You need to be signed in to post.");
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("lat, lng")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      setIsSubmitting(false);
+      setSubmitError(profileError.message);
+      return;
+    }
+
+    const lat = profile?.lat ?? null;
+    const lng = profile?.lng ?? null;
+    if (lat == null || lng == null) {
+      setIsSubmitting(false);
+      setSubmitError(
+        "Add your location to your profile before posting a request.",
+      );
+      return;
+    }
+
+    const { error: insertError } = await supabase.from("listings").insert({
+      posted_by: user.id,
+      description: need.trim(),
+      duration_minutes: durationMins,
+      needed_by: neededDay,
+      lat,
+      lng,
+      status: "open",
+    });
+
+    setIsSubmitting(false);
+    if (insertError) {
+      setSubmitError(insertError.message);
+      return;
+    }
+
+    router.push("/home");
+  }
 
   return (
     <div className={tkAsk.shell}>
@@ -104,12 +166,22 @@ export default function AskPage() {
           />
         </section>
 
+        {submitError ? (
+          <p className={tkAsk.submitError} role="alert">
+            {submitError}
+          </p>
+        ) : null}
+
         <button
           type="button"
           disabled={!canSubmit}
-          className={cn(tkAsk.primaryButton, !canSubmit && tkAsk.primaryButtonDisabled)}
+          onClick={handlePostRequest}
+          className={cn(
+            tkAsk.primaryButton,
+            !canSubmit && tkAsk.primaryButtonDisabled,
+          )}
         >
-          Post your request
+          {isSubmitting ? "Posting…" : "Post your request"}
         </button>
       </main>
     </div>
