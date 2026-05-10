@@ -120,6 +120,11 @@ const RADIUS_STEP = 0.25;
 const RADIUS_SAVE_DEBOUNCE_MS = 450;
 const GIFT_SEARCH_DEBOUNCE_MS = 320;
 
+/** Strip leading @ so RPC username search matches DB values (handles "Search @username" UX). */
+function normalizeGiftUsernameSearch(raw: string): string {
+  return raw.trim().replace(/^@+/, "").trim();
+}
+
 /** Postgres `numeric` often arrives as a string in the browser */
 function parseRadiusMilesDb(raw: unknown): number | null {
   if (raw == null) return null;
@@ -185,6 +190,7 @@ export default function YouPage() {
     useState<GiftRecipientOption | null>(null);
   const [giftSending, setGiftSending] = useState(false);
   const [giftError, setGiftError] = useState<string | null>(null);
+  const [giftSearchDropdownOpen, setGiftSearchDropdownOpen] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [usernameHandle, setUsernameHandle] = useState("");
@@ -198,6 +204,7 @@ export default function YouPage() {
   const sessionUserIdRef = useRef<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const radiusSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const giftSearchWrapRef = useRef<HTMLDivElement | null>(null);
   /** True after the user moves the slider; avoids profile fetch overwriting local value */
   const radiusDirtyRef = useRef(false);
 
@@ -209,12 +216,29 @@ export default function YouPage() {
   }, [giftSearchQuery]);
 
   useEffect(() => {
+    if (!giftOpen) {
+      setGiftSearchDropdownOpen(false);
+      return;
+    }
+    function handlePointerDown(e: PointerEvent) {
+      const wrap = giftSearchWrapRef.current;
+      if (!wrap) return;
+      const t = e.target;
+      if (t instanceof Node && wrap.contains(t)) return;
+      setGiftSearchDropdownOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () =>
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [giftOpen]);
+
+  useEffect(() => {
     if (!giftOpen) return;
-    const q = giftSearchDebounced.trim();
+    const qNorm = normalizeGiftUsernameSearch(giftSearchDebounced);
     let cancelled = false;
 
     async function runSearch() {
-      if (q.length === 0) {
+      if (qNorm.length === 0) {
         await Promise.resolve();
         if (cancelled) return;
         setGiftSearchResults([]);
@@ -226,7 +250,7 @@ export default function YouPage() {
       const supabase = getSupabase();
       const { data, error } = await supabase.rpc(
         "search_profiles_by_username",
-        { search_query: q },
+        { search_query: qNorm },
       );
       if (cancelled) return;
       setGiftSearchLoading(false);
@@ -634,21 +658,24 @@ export default function YouPage() {
                 <label htmlFor="gift-recipient-search" className={tkYou.giftFieldLabel}>
                   Find a neighbor by username
                 </label>
-                <div className={tkYou.giftSearchWrap}>
+                <div ref={giftSearchWrapRef} className={tkYou.giftSearchWrap}>
                   <input
                     id="gift-recipient-search"
                     type="search"
                     autoComplete="off"
                     placeholder="Search @username"
                     value={giftSearchQuery}
+                    onFocus={() => setGiftSearchDropdownOpen(true)}
                     onChange={(e) => {
                       setGiftSearchQuery(e.target.value);
+                      setGiftSearchDropdownOpen(true);
                       setSelectedRecipient(null);
                       setGiftError(null);
                     }}
                     className={tkYou.giftSearchInput}
                   />
-                  {giftSearchQuery.trim().length > 0 ? (
+                  {giftSearchDropdownOpen &&
+                  giftSearchQuery.trim().length > 0 ? (
                     <div
                       className={tkYou.giftSearchResults}
                       role="listbox"
@@ -678,6 +705,7 @@ export default function YouPage() {
                               onClick={() => {
                                 setSelectedRecipient(r);
                                 setGiftSearchQuery(un ? `@${un}` : "");
+                                setGiftSearchDropdownOpen(false);
                                 setGiftError(null);
                               }}
                               className={tkYou.giftSearchResultBtn}
