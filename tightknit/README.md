@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tightknit
 
-## Getting Started
+Tightknit is a neighborhood time-banking app where people trade hours instead of money.
+Users can post requests, volunteer to help, chat with neighbors, mark tasks complete together, and track their hour balance.
 
-First, run the development server:
+## Tech Stack
+
+- Next.js 16 (App Router) + React 19 + TypeScript
+- Supabase Auth + Postgres + Realtime
+- Tailwind CSS 4 + custom route-level styles
+
+## Core Product Flow
+
+1. Sign up or sign in.
+2. Complete onboarding (location + "superpower" skill).
+3. Browse nearby open requests on `Home`.
+4. Post a request with a duration on `Ask`.
+5. Offer help from a request detail page and start a chat.
+6. Both participants acknowledge completion to finalize and apply hour updates.
+7. Manage profile, radius, hour gifting, and post history from `You`.
+
+## Main Routes
+
+- `app/auth/*`: auth screens (sign up, sign in, password reset, callbacks)
+- `app/onboarding/*`: location and superpower onboarding
+- `app/(main)/home`: nearby request feed and hour balance
+- `app/(main)/ask`: create a new help request
+- `app/(main)/request/[id]`: request detail + "I can help" action
+- `app/(main)/messages`: conversation list
+- `app/(main)/messages/[room_id]`: real-time chat + completion acknowledgement
+- `app/(main)/you`: profile, radius, gifting hours, and history
+
+## Environment Variables
+
+Create a `.env.local` file in the project root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_or_publishable_key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+These are required by:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `lib/supabase/client.ts` (browser client)
+- `lib/supabase/server.ts` and `middleware.ts` (server/middleware auth handling)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Local Development
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Then open [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database and Supabase
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+- The app relies on Supabase tables and RPC/functions referenced throughout the main routes (for example profile search, gifting hours, and listing completion acknowledgement).
+- Apply migrations to your Supabase project before testing full flows.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Available Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` - start local dev server
+- `npm run build` - build for production
+- `npm run start` - run production build
+- `npm run lint` - run ESLint
