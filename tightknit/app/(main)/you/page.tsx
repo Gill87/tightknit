@@ -238,7 +238,7 @@ export default function YouPage() {
     let cancelled = false;
 
     async function runSearch() {
-      if (q.length === 0) {
+      if (qNorm.length === 0) {
         await Promise.resolve();
         if (cancelled) return;
         setGiftSearchResults([]);
@@ -250,7 +250,7 @@ export default function YouPage() {
       const supabase = getSupabase();
       const { data, error } = await supabase.rpc(
         "search_profiles_by_username",
-        { search_query: q },
+        { search_query: qNorm },
       );
       if (cancelled) return;
       setGiftSearchLoading(false);
