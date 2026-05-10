@@ -43,7 +43,7 @@ export const tkRoom = {
   headerName: "text-[15px] font-semibold text-tk-forest leading-tight truncate",
   headerSub: "text-xs text-tk-muted truncate",
   markCompleteBtn:
-    "shrink-0 rounded-full bg-tk-forest px-3 py-2 text-xs font-semibold text-white active:bg-tk-forest-soft transition-colors",
+    "shrink-0 rounded-full bg-tk-forest px-3 py-2 text-xs font-semibold text-white active:bg-tk-forest-soft transition-colors disabled:cursor-not-allowed disabled:opacity-45",
 
   thread: "flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3",
 

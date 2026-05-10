@@ -16,6 +16,8 @@ export const tkMyPosts = {
 
   badgeClaimed: "bg-tk-blush text-tk-terracotta",
 
+  badgePending: "bg-amber-50 text-amber-900",
+
   badgeDone: "bg-emerald-50 text-emerald-900",
 
   actionsRow: "mt-3 flex flex-wrap items-center gap-2 border-t border-tk-border/80 pt-3",
