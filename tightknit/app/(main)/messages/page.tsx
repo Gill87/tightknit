@@ -126,9 +126,15 @@ export default function MessagesPage() {
       <div className={tkMessages.inner}>
         <h1 className={tkMessages.header}>Messages</h1>
         <div className={tkMessages.list}>
-          {conversations.map((conv, i) => (
-            <ConversationItem key={conv.roomId} conversation={conv} index={i} />
-          ))}
+          {conversations.length === 0 ? (
+            <p className="py-8 text-center text-sm text-tk-muted">
+              You have 0 message conversations
+            </p>
+          ) : (
+            conversations.map((conv, i) => (
+              <ConversationItem key={conv.roomId} conversation={conv} index={i} />
+            ))
+          )}
         </div>
       </div>
     </div>
