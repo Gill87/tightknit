@@ -101,8 +101,11 @@ export default function HomePage() {
 
     setBalance(hourBalanceToNumber(profile?.hour_balance));
 
-    if (rawListings?.length) {
-      const items: FeedItem[] = rawListings.map((l: RawListing) => {
+    const visibleListings =
+      rawListings?.filter((l: RawListing) => l.posted_by !== user.id) ?? [];
+
+    if (visibleListings.length) {
+      const items: FeedItem[] = visibleListings.map((l: RawListing) => {
         const fullName = l.posted_by_name || "Neighbor";
         let distance = "Nearby";
         let nearbyOnly = true;
