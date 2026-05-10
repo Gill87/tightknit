@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase/client";
 import { useChat } from "../hooks/useChat";
 import { ChatHeader } from "./components/ChatHeader";
@@ -87,6 +87,12 @@ export default function RoomPage({
   const firstName =
     participantName.split(" ")[0]?.replace(/\.$/, "") ?? participantName;
 
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   return (
     <div className={tkRoom.shell}>
       <ChatHeader participantName={participantName} subtitle={subtitle} />
@@ -101,6 +107,7 @@ export default function RoomPage({
             showCheck={m.sender_id === currentUserId}
           />
         ))}
+        <div ref={bottomRef} />
       </div>
       <MessageInput placeholder={`Message ${firstName}…`} onSend={sendMessage} />
     </div>
