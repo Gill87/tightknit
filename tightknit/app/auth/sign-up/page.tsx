@@ -29,20 +29,34 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  // #region agent log
+  const _submitCallCount = { n: 0 }
+  // #endregion
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // #region agent log
+    _submitCallCount.n++
+    fetch('http://127.0.0.1:7374/ingest/e055fc60-e903-4835-a5fe-06f9d070f299',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'60d608'},body:JSON.stringify({sessionId:'60d608',hypothesisId:'H-A H-E',location:'sign-up/page.tsx:handleSubmit',message:'handleSubmit invoked',data:{callN:_submitCallCount.n,isLoadingAtEntry:isLoading,email},timestamp:Date.now()})}).catch(()=>{})
+    // #endregion
     setError(null)
     setIsLoading(true)
 
+    // #region agent log
+    fetch('http://127.0.0.1:7374/ingest/e055fc60-e903-4835-a5fe-06f9d070f299',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'60d608'},body:JSON.stringify({sessionId:'60d608',hypothesisId:'H-A H-B',location:'sign-up/page.tsx:before-signUp',message:'About to call supabase.auth.signUp',data:{callN:_submitCallCount.n,email},timestamp:Date.now()})}).catch(()=>{})
+    // #endregion
     const { error: signUpError } = await getSupabase().auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/location`,
         data: { name, username, phone },
       },
     })
 
+    // #region agent log
+    fetch('http://127.0.0.1:7374/ingest/e055fc60-e903-4835-a5fe-06f9d070f299',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'60d608'},body:JSON.stringify({sessionId:'60d608',hypothesisId:'H-A H-C',location:'sign-up/page.tsx:after-signUp',message:'supabase.auth.signUp returned',data:{callN:_submitCallCount.n,hasError:!!signUpError,errorMsg:signUpError?.message},timestamp:Date.now()})}).catch(()=>{})
+    // #endregion
     setIsLoading(false)
 
     if (signUpError) {

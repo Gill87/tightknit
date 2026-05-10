@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import * as s from './formStyles'
 
 const PRESETS = [
@@ -15,6 +16,7 @@ const PRESETS = [
 ]
 
 export default function SuperpowersPage() {
+  const router = useRouter()
   const [value, setValue] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -39,7 +41,7 @@ export default function SuperpowersPage() {
     <main className={s.page}>
       <div className={s.inner}>
         <div className={s.progressBar}>
-          <div className={s.progressSegment} />
+          <div className={s.progressSegmentActive} />
           <div className={s.progressSegmentActive} />
         </div>
 
@@ -71,6 +73,7 @@ export default function SuperpowersPage() {
         <button
           type="button"
           disabled={!hasValue}
+          onClick={() => router.push('/home')}
           className={`${s.ctaBase} ${hasValue ? s.ctaActive : s.ctaIdle}`}
         >
           Let's go.

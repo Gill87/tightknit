@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   page,
   pageInner,
@@ -61,6 +62,7 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
 }
 
 export default function LocationPage() {
+  const router = useRouter()
   const [status, setStatus] = useState<LocationStatus>('pending')
   const [cityName, setCityName] = useState<string>('')
   const [radius, setRadius] = useState<number>(0.5)
@@ -179,7 +181,7 @@ export default function LocationPage() {
         )}
 
         {status === 'granted' && (
-          <button className={nextButton}>Next</button>
+          <button className={nextButton} onClick={() => router.push('/onboarding/superpowers')}>Next</button>
         )}
       </div>
     </main>
