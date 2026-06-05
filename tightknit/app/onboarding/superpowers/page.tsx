@@ -59,11 +59,25 @@ function SuperpowersInner() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setIsLoading(false); return }
 
+    const meta = user.user_metadata ?? {}
+    const rawName =
+      typeof meta.name === 'string' ? meta.name : typeof meta.full_name === 'string' ? meta.full_name : ''
+    const rawUsername =
+      typeof meta.username === 'string' ? meta.username : ''
+    const rawPhone = typeof meta.phone === 'string' ? meta.phone : ''
+
+    const full_name =
+      rawName.trim() ||
+      rawUsername.trim() ||
+      null
+    const username = rawUsername.trim() || null
+    const phone = rawPhone.trim() || null
+
     await supabase.from('profiles').insert({
       id: user.id,
-      full_name: user.user_metadata?.name ?? '',
-      username: user.user_metadata?.username ?? '',
-      phone: user.user_metadata?.phone ?? '',
+      full_name,
+      username,
+      phone,
       email: user.email ?? '',
       superpowers: value.trim(),
       lat,

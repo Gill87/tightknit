@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase/client";
 import { tkMessages } from "./formStyles";
 import { ConversationItem, type Conversation } from "./components/ConversationItem";
+import {
+  parseListingRoom,
+  resolveParticipantDisplayName,
+} from "@/lib/messaging/participantDisplayName";
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -46,16 +50,30 @@ export default function MessagesPage() {
       }
 
       // Parse listingId and the other participant's userId from each room_id
-      // Format: listing_{listingId}_{userId1}_{userId2}
       const rooms = [...roomMap.entries()].map(([roomId, msg]) => {
-        const [, listingId, ...userIds] = roomId.split("_");
+        const parsed = parseListingRoom(roomId);
+        if (!parsed) {
+          return { roomId, msg, invalidRoom: true as const };
+        }
         const otherUserId =
-          userIds.find((uid) => uid !== user.id) ?? userIds[0];
-        return { roomId, listingId, otherUserId, msg };
+          parsed.peerIds.find((uid) => uid !== user.id) ?? parsed.peerIds[0];
+        return {
+          roomId,
+          listingId: parsed.listingId,
+          otherUserId,
+          msg,
+          invalidRoom: false as const,
+        };
       });
 
       // Batch-fetch listings so we know who the poster is per room
-      const listingIds = [...new Set(rooms.map((r) => r.listingId))];
+      const listingIds = [
+        ...new Set(
+          rooms
+            .filter((r) => !r.invalidRoom)
+            .map((r) => r.listingId),
+        ),
+      ];
       const { data: listings, error: listingsError } = await supabase
         .from("listings")
         .select("id, posted_by, posted_by_name")
@@ -76,38 +94,47 @@ export default function MessagesPage() {
 
       // Unconditionally fetch profile full_names for every other party,
       // so we have a fallback even when posted_by_name is null
-      const otherIds = [...new Set(rooms.map((r) => r.otherUserId))];
+      const otherIds = [
+        ...new Set(
+          rooms
+            .filter((r) => !r.invalidRoom)
+            .map((r) => r.otherUserId),
+        ),
+      ];
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, username")
         .in("id", otherIds);
       if (profilesError)
         console.warn("[messages] profiles fetch error", profilesError);
-      const profileNameById = new Map<string, string | null>(
+      const profileById = new Map<
+        string,
+        { full_name: string | null; username: string | null }
+      >(
         (profiles ?? []).map(
-          (p: { id: string; full_name: string | null }) => [p.id, p.full_name]
-        )
+          (p: {
+            id: string;
+            full_name: string | null;
+            username: string | null;
+          }) => [p.id, { full_name: p.full_name, username: p.username }],
+        ),
       );
 
-      const clean = (s: string | null | undefined): string =>
-        (s ?? "").trim();
-
-      const resolveName = (listingId: string, otherUserId: string): string => {
+      const resolveName = (
+        listingId: string,
+        otherUserId: string,
+      ): string => {
         const listing = listingById.get(listingId);
-        const postedName = clean(listing?.posted_by_name);
-        const profileName = clean(profileNameById.get(otherUserId));
-        const isOtherThePoster =
-          !!listing && otherUserId === listing.posted_by;
-        const name = isOtherThePoster
-          ? postedName || profileName || "Neighbor"
-          : profileName || "Neighbor";
+        const name = resolveParticipantDisplayName({
+          listingPostedBy: listing?.posted_by,
+          listingPostedByName: listing?.posted_by_name,
+          otherUserId,
+          profile: profileById.get(otherUserId) ?? null,
+        });
         if (name === "Neighbor") {
           console.warn("[messages] no name resolved", {
             listingId,
             otherUserId,
-            postedName,
-            profileName,
-            isOtherThePoster,
             listingFound: !!listing,
           });
         }
@@ -115,14 +142,27 @@ export default function MessagesPage() {
       };
 
       setConversations(
-        rooms.map(({ roomId, listingId, otherUserId, msg }, i) => ({
-          id: String(i),
-          roomId,
-          participantName: resolveName(listingId, otherUserId),
-          lastMessage: msg.content,
-          timestamp: timeAgo(msg.created_at),
-          unreadCount: 0,
-        }))
+        rooms.map((row, i) => {
+          if (row.invalidRoom) {
+            return {
+              id: String(i),
+              roomId: row.roomId,
+              participantName: "Invalid conversation",
+              lastMessage: row.msg.content,
+              timestamp: timeAgo(row.msg.created_at),
+              unreadCount: 0,
+            };
+          }
+          const { roomId, listingId, otherUserId, msg } = row;
+          return {
+            id: String(i),
+            roomId,
+            participantName: resolveName(listingId, otherUserId),
+            lastMessage: msg.content,
+            timestamp: timeAgo(msg.created_at),
+            unreadCount: 0,
+          };
+        }),
       );
       setIsLoading(false);
     }
