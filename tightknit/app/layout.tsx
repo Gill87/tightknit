@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/app/components/ServiceWorkerRegistration";
+import QueryProvider from "@/app/components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,7 +48,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegistration />
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

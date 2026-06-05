@@ -1,25 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { tkHome } from "./formStyles";
-import { useCallback, useEffect, useState } from "react";
 import { ChevronRightIcon, ClockIcon, PinIcon, RefreshIcon } from "./components/icons";
-import { getSupabase } from "@/lib/supabase/client";
-
-type RawListing = {
-  id: string;
-  posted_by: string;
-  posted_by_name: string | null;
-  created_at: string;
-  description: string;
-  duration_minutes: number;
-  lat: number | null;
-  lng: number | null;
-  /** `listing_status` enum: home feed only shows `open` */
-  status: string;
-  claimed_by: string | null;
-  completed_at: string | null;
-};
+import { useCurrentUser, useProfile } from "@/lib/queries/profile";
+import { useHomeFeed, type RawListing } from "@/lib/queries/listings";
 
 type FeedItem = {
   id: string;
@@ -68,12 +54,10 @@ function haversine(
 
 function hourBalanceToNumber(raw: unknown): number {
   if (raw == null) return 0;
-  const n =
-    typeof raw === "string" ? parseFloat(raw) : Number(raw);
+  const n = typeof raw === "string" ? parseFloat(raw) : Number(raw);
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Open requests only — excludes `claimed` / `completed` status and picked-up or finished rows. */
 function isOpenFeedListing(l: RawListing): boolean {
   if (String(l.status ?? "").toLowerCase() !== "open") return false;
   if (l.claimed_by != null) return false;
@@ -82,53 +66,27 @@ function isOpenFeedListing(l: RawListing): boolean {
 }
 
 export default function HomePage() {
-  /** `null` until the first profile fetch resolves — avoids flashing a placeholder hour count */
-  const [balance, setBalance] = useState<number | null>(null);
-  const [listings, setListings] = useState<FeedItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: user } = useCurrentUser();
+  const profileQuery = useProfile(user?.id);
+  const feedQuery = useHomeFeed();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    const supabase = getSupabase();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+  const profile = profileQuery.data;
+  const isLoading = feedQuery.isPending;
+  const balance = profileQuery.isPending ? null : hourBalanceToNumber(profile?.hour_balance);
 
-    const [{ data: profile }, { data: rawListings }] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("hour_balance, lat, lng, radius_miles")
-        .eq("id", user.id)
-        .single(),
-      supabase
-        .from("listings")
-        .select("*")
-        .eq("status", "open")
-        .is("claimed_by", null)
-        .is("completed_at", null)
-        .order("created_at", { ascending: false }),
-    ]);
-
-    setBalance(hourBalanceToNumber(profile?.hour_balance));
-
-    const visibleListings =
-      rawListings?.filter(
-        (l: RawListing) => l.posted_by !== user.id && isOpenFeedListing(l),
-      ) ?? [];
-
-    if (visibleListings.length) {
-      const items: FeedItem[] = visibleListings.map((l: RawListing) => {
+  const listings = useMemo((): FeedItem[] => {
+    const raw = feedQuery.data ?? [];
+    if (!user || profileQuery.isPending) return [];
+    return raw
+      .filter((l: RawListing) => l.posted_by !== user.id && isOpenFeedListing(l))
+      .map((l: RawListing): FeedItem => {
         const fullName = l.posted_by_name || "Neighbor";
         let distance = "Nearby";
         let nearbyOnly = true;
         if (profile?.lat && profile?.lng && l.lat && l.lng) {
           const d = haversine(profile.lat, profile.lng, l.lat, l.lng);
           distance = d < 0.1 ? "Same block" : `${d.toFixed(1)} mi away`;
-          nearbyOnly = d <= (profile.radius_miles ?? 5);
+          nearbyOnly = d <= (Number(profile.radius_miles) || 5);
         }
         return {
           id: l.id,
@@ -141,19 +99,14 @@ export default function HomePage() {
           nearbyOnly,
         };
       });
-      setListings(items);
-    } else {
-      setListings([]);
-    }
-
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [feedQuery.data, user, profile, profileQuery.isPending]);
 
   const nearby = listings.filter((r) => r.nearbyOnly);
+
+  function handleRefresh() {
+    feedQuery.refetch();
+    profileQuery.refetch();
+  }
 
   return (
     <div className={tkHome.shell}>
@@ -216,8 +169,8 @@ export default function HomePage() {
                 </h2>
                 <button
                   type="button"
-                  onClick={load}
-                  disabled={isLoading}
+                  onClick={handleRefresh}
+                  disabled={feedQuery.isFetching}
                   aria-label="Refresh listings"
                   className="text-tk-muted transition hover:text-tk-forest disabled:opacity-40"
                 >

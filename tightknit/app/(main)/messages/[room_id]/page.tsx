@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase/client";
+import { useCurrentUser } from "@/lib/queries/profile";
 import {
   parseListingRoom,
   resolveParticipantDisplayName,
@@ -58,6 +59,7 @@ export default function RoomPage({
   const { room_id } = use(params);
   const parsedRoom = useMemo(() => parseListingRoom(room_id), [room_id]);
 
+  const { data: currentUserData } = useCurrentUser();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState("");
   const [subtitle, setSubtitle] = useState("");
@@ -66,12 +68,10 @@ export default function RoomPage({
   const [completeBusy, setCompleteBusy] = useState(false);
 
   useEffect(() => {
+    if (!currentUserData) return;
     async function init() {
       const supabase = getSupabase();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      const user = currentUserData;
       setCurrentUserId(user.id);
 
       const parsed = parseListingRoom(room_id);
@@ -130,7 +130,7 @@ export default function RoomPage({
       setParticipantName(name);
     }
     init();
-  }, [room_id]);
+  }, [room_id, currentUserData]);
 
   useEffect(() => {
     const listingId = parsedRoom?.listingId;

@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { tkMessages } from "../formStyles";
+import type { Conversation } from "@/lib/queries/messages";
 
-export type Conversation = {
-  id: string;
-  roomId: string;
-  participantName: string;
-  lastMessage: string;
-  timestamp: string;
-  unreadCount: number;
-};
+export type { Conversation };
 
 export function ConversationItem({
   conversation,

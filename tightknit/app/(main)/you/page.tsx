@@ -15,17 +15,22 @@ import {
 } from "./components/icons";
 import { cn, tkYou } from "./formStyles";
 import { getSupabase } from "@/lib/supabase/client";
+import { useCurrentUser, useProfile } from "@/lib/queries/profile";
+import { useMyHistory } from "@/lib/queries/listings";
+import { useGiftHours, useUpdateRadius } from "@/lib/mutations/profile";
 
-/** Fallback when `profiles.hour_balance` is missing (numeric hours in DB) */
 const DEFAULT_HOUR_BALANCE = 3;
 const GIFT_STEP_MINUTES = 30;
+const RADIUS_MIN = 1;
+const RADIUS_MAX = 10;
+const RADIUS_STEP = 0.25;
+const RADIUS_SAVE_DEBOUNCE_MS = 450;
+const GIFT_SEARCH_DEBOUNCE_MS = 320;
 
 function hourBalanceToMinutes(hourBalance: unknown): number {
   if (hourBalance == null) return DEFAULT_HOUR_BALANCE * 60;
   const n =
-    typeof hourBalance === "string"
-      ? parseFloat(hourBalance)
-      : Number(hourBalance);
+    typeof hourBalance === "string" ? parseFloat(hourBalance) : Number(hourBalance);
   if (!Number.isFinite(n) || n < 0) return DEFAULT_HOUR_BALANCE * 60;
   return n * 60;
 }
@@ -33,9 +38,7 @@ function hourBalanceToMinutes(hourBalance: unknown): number {
 function formatBalanceHoursLabel(totalMins: number): string {
   if (totalMins <= 0) return "0 hours";
   const hours = totalMins / 60;
-  if (Number.isInteger(hours)) {
-    return hours === 1 ? "1 hour" : `${hours} hours`;
-  }
+  if (Number.isInteger(hours)) return hours === 1 ? "1 hour" : `${hours} hours`;
   const text = hours.toFixed(1).replace(/\.0$/, "");
   return `${text} hours`;
 }
@@ -45,9 +48,7 @@ function initialsFromName(name: string): string {
   if (!t) return "?";
   const parts = t.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
-    return (
-      parts[0]!.slice(0, 1) + parts[parts.length - 1]!.slice(0, 1)
-    ).toUpperCase();
+    return (parts[0]!.slice(0, 1) + parts[parts.length - 1]!.slice(0, 1)).toUpperCase();
   }
   return t.slice(0, 2).toUpperCase();
 }
@@ -62,20 +63,12 @@ type HistoryEntry = {
   emoji: string;
   title: string;
   detail: string;
-  /** Hours credited when you completed helping (always positive for this feed) */
   deltaHours: number;
 };
 
-type CompletedListingRow = {
+type GiftRecipientOption = {
   id: string;
-  description: string | null;
-  duration_minutes: number | null;
-  completed_at: string | null;
-  posted_by: string | null;
-};
-
-type PosterNameRow = {
-  id: string;
+  username: string | null;
   full_name: string | null;
 };
 
@@ -85,16 +78,11 @@ function truncateListingTitle(text: string, maxLen = 72): string {
   return `${t.slice(0, maxLen - 1)}…`;
 }
 
-/** Relative label for when the task was completed */
 function formatCompletedWhen(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   const now = new Date();
-  const startToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  ).getTime();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const startYesterday = startToday - 86400000;
   const t = d.getTime();
   if (t >= startToday) return "Today";
@@ -108,37 +96,16 @@ function firstNameFromFull(full: string): string {
   return first.replace(/\.$/, "");
 }
 
-type GiftRecipientOption = {
-  id: string;
-  username: string | null;
-  full_name: string | null;
-};
-
-const RADIUS_MIN = 1;
-const RADIUS_MAX = 10;
-const RADIUS_STEP = 0.25;
-const RADIUS_SAVE_DEBOUNCE_MS = 450;
-const GIFT_SEARCH_DEBOUNCE_MS = 320;
-
-/** Strip leading @ so RPC username search matches DB values (handles "Search @username" UX). */
-function normalizeGiftUsernameSearch(raw: string): string {
-  return raw.trim().replace(/^@+/, "").trim();
-}
-
-/** Postgres `numeric` often arrives as a string in the browser */
 function parseRadiusMilesDb(raw: unknown): number | null {
   if (raw == null) return null;
-  const n =
-    typeof raw === "string" ? parseFloat(raw) : Number(raw);
+  const n = typeof raw === "string" ? parseFloat(raw) : Number(raw);
   if (!Number.isFinite(n)) return null;
   return Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, n));
 }
 
 function formatRadiusMi(miles: number): string {
   const rounded = Math.round(miles * 100) / 100;
-  if (Math.abs(rounded - Math.round(rounded)) < 1e-6) {
-    return `${rounded} mi`;
-  }
+  if (Math.abs(rounded - Math.round(rounded)) < 1e-6) return `${rounded} mi`;
   const s = rounded.toFixed(2).replace(/\.?0+$/, "");
   return `${s} mi`;
 }
@@ -150,25 +117,19 @@ function formatDeltaHours(h: number): string {
   return `${prefix}${text} ${unit}`;
 }
 
-/** Display parts for the duration stepper (30-minute increments). */
 function giftStepCenterParts(mins: number): { num: string; unit: string } {
   if (mins < 60) return { num: String(mins), unit: "min" };
   const h = mins / 60;
-  if (mins % 60 === 0) {
-    return { num: String(h), unit: h === 1 ? "hour" : "hours" };
-  }
+  if (mins % 60 === 0) return { num: String(h), unit: h === 1 ? "hour" : "hours" };
   const dec = mins / 60;
-  const num =
-    dec % 1 === 0 ? String(dec) : dec.toFixed(1).replace(/\.0$/, "");
+  const num = dec % 1 === 0 ? String(dec) : dec.toFixed(1).replace(/\.0$/, "");
   return { num, unit: "hours" };
 }
 
 function sendGiftLabelMinutes(mins: number): string {
   if (mins < 60) return `Send ${mins} min`;
   const h = mins / 60;
-  if (mins % 60 === 0) {
-    return h === 1 ? "Send 1 hour" : `Send ${h} hours`;
-  }
+  if (mins % 60 === 0) return h === 1 ? "Send 1 hour" : `Send ${h} hours`;
   const dec = mins / 60;
   const n = dec.toFixed(1).replace(/\.0$/, "");
   return `Send ${n} hours`;
@@ -182,39 +143,91 @@ export default function YouPage() {
   const [giftMinutes, setGiftMinutes] = useState(60);
   const [giftSearchQuery, setGiftSearchQuery] = useState("");
   const [giftSearchDebounced, setGiftSearchDebounced] = useState("");
-  const [giftSearchResults, setGiftSearchResults] = useState<
-    GiftRecipientOption[]
-  >([]);
+  const [giftSearchResults, setGiftSearchResults] = useState<GiftRecipientOption[]>([]);
   const [giftSearchLoading, setGiftSearchLoading] = useState(false);
-  const [selectedRecipient, setSelectedRecipient] =
-    useState<GiftRecipientOption | null>(null);
+  const [selectedRecipient, setSelectedRecipient] = useState<GiftRecipientOption | null>(null);
   const [giftSending, setGiftSending] = useState(false);
   const [giftError, setGiftError] = useState<string | null>(null);
   const [giftSearchDropdownOpen, setGiftSearchDropdownOpen] = useState(false);
 
-  const [displayName, setDisplayName] = useState("");
-  const [usernameHandle, setUsernameHandle] = useState("");
-  const [avatarInitials, setAvatarInitials] = useState("?");
-  const [balanceMinutes, setBalanceMinutes] = useState(
-    DEFAULT_HOUR_BALANCE * 60,
-  );
-  const [profileLoaded, setProfileLoaded] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-
   const sessionUserIdRef = useRef<string | null>(null);
-  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const radiusSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const giftSearchWrapRef = useRef<HTMLDivElement | null>(null);
-  /** True after the user moves the slider; avoids profile fetch overwriting local value */
   const radiusDirtyRef = useRef(false);
 
+  const { data: user } = useCurrentUser();
+  const { data: profile, isPending: profilePending } = useProfile(user?.id);
+  const { data: historyData } = useMyHistory(user?.id);
+  const giftHoursMutation = useGiftHours(user?.id);
+  const updateRadiusMutation = useUpdateRadius(user?.id);
+
+  // Keep ref in sync for use in timeout callbacks
   useEffect(() => {
-    const t = setTimeout(() => {
-      setGiftSearchDebounced(giftSearchQuery);
-    }, GIFT_SEARCH_DEBOUNCE_MS);
+    sessionUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  // Sync radius from profile on initial load (skip if user has already moved slider)
+  useEffect(() => {
+    if (!profile || radiusDirtyRef.current) return;
+    const parsed = parseRadiusMilesDb(profile.radius_miles);
+    if (parsed != null) setRadiusMiles(parsed);
+  }, [profile?.radius_miles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cap giftMinutes to balance whenever balance changes
+  const balanceMinutes = useMemo(
+    () => (profile ? hourBalanceToMinutes(profile.hour_balance) : DEFAULT_HOUR_BALANCE * 60),
+    [profile]
+  );
+
+  useEffect(() => {
+    if (!profile) return;
+    setGiftMinutes((m) =>
+      Math.min(Math.max(m, GIFT_STEP_MINUTES), Math.max(balanceMinutes, GIFT_STEP_MINUTES))
+    );
+  }, [balanceMinutes, profile]);
+
+  // Derived display values
+  const { displayName, usernameHandle, avatarInitials } = useMemo(() => {
+    if (!profile) return { displayName: "…", usernameHandle: "@—", avatarInitials: "?" };
+    const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>;
+    const name =
+      (profile.full_name && String(profile.full_name).trim()) ||
+      meta.name?.trim() ||
+      (user?.email?.split("@")[0] ?? "");
+    const username =
+      (profile.username && String(profile.username).trim()) || meta.username?.trim() || "";
+    return {
+      displayName: name || "Neighbor",
+      usernameHandle: formatUsernameHandle(username),
+      avatarInitials: initialsFromName(name || username || "?"),
+    };
+  }, [profile, user]);
+
+  const profileLoaded = !profilePending;
+
+  const history = useMemo((): HistoryEntry[] => {
+    if (!historyData) return [];
+    return historyData.listings.map((row) => {
+      const requester = (row.posted_by && historyData.nameById[row.posted_by]) || "Neighbor";
+      const when = formatCompletedWhen(row.completed_at);
+      const deltaHours = (Number(row.duration_minutes) || 0) / 60;
+      return {
+        id: row.id,
+        emoji: "👏",
+        title: truncateListingTitle(row.description?.trim() || "Helped a neighbor"),
+        detail: `with ${firstNameFromFull(requester)} · ${when}`,
+        deltaHours,
+      };
+    });
+  }, [historyData]);
+
+  // Gift search debounce
+  useEffect(() => {
+    const t = setTimeout(() => setGiftSearchDebounced(giftSearchQuery), GIFT_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [giftSearchQuery]);
 
+  // Gift search dropdown close on outside click
   useEffect(() => {
     if (!giftOpen) {
       setGiftSearchDropdownOpen(false);
@@ -228,234 +241,58 @@ export default function YouPage() {
       setGiftSearchDropdownOpen(false);
     }
     document.addEventListener("pointerdown", handlePointerDown, true);
-    return () =>
-      document.removeEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
   }, [giftOpen]);
 
+  // Gift username search
   useEffect(() => {
     if (!giftOpen) return;
-    const qNorm = normalizeGiftUsernameSearch(giftSearchDebounced);
+    const qNorm = giftSearchDebounced.trim().replace(/^@+/, "").trim();
     let cancelled = false;
 
     async function runSearch() {
       if (qNorm.length === 0) {
-        await Promise.resolve();
-        if (cancelled) return;
-        setGiftSearchResults([]);
-        setGiftSearchLoading(false);
+        if (!cancelled) { setGiftSearchResults([]); setGiftSearchLoading(false); }
         return;
       }
-
       setGiftSearchLoading(true);
-      const supabase = getSupabase();
-      const { data, error } = await supabase.rpc(
-        "search_profiles_by_username",
-        { search_query: qNorm },
-      );
+      const { data, error } = await getSupabase().rpc("search_profiles_by_username", {
+        search_query: qNorm,
+      });
       if (cancelled) return;
       setGiftSearchLoading(false);
-      if (error) {
-        console.error("Neighbor search failed:", error.message);
-        setGiftSearchResults([]);
-        return;
-      }
-      const rows = (data ?? []) as GiftRecipientOption[];
-      setGiftSearchResults(rows);
+      if (error) { console.error("Neighbor search failed:", error.message); setGiftSearchResults([]); return; }
+      setGiftSearchResults((data ?? []) as GiftRecipientOption[]);
     }
 
     void runSearch();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [giftSearchDebounced, giftOpen]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfile() {
-      const supabase = getSupabase();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        sessionUserIdRef.current = null;
-        setSessionUserId(null);
-        radiusDirtyRef.current = false;
-        if (!cancelled) {
-          setHistory([]);
-          setProfileLoaded(true);
-        }
-        return;
-      }
-
-      sessionUserIdRef.current = user.id;
-      setSessionUserId(user.id);
-
-      const meta = user.user_metadata as Record<string, string | undefined>;
-      const fallbackName = meta?.name?.trim() ?? "";
-      const fallbackUsername = meta?.username?.trim() ?? "";
-
-      const [{ data: profile }, { data: completedListings }] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("full_name, username, radius_miles, hour_balance")
-          .eq("id", user.id)
-          .maybeSingle(),
-        supabase
-          .from("listings")
-          .select("id, description, duration_minutes, completed_at, posted_by")
-          .eq("completed_by", user.id)
-          .not("completed_at", "is", null)
-          .order("completed_at", { ascending: false }),
-      ]);
-
-      if (cancelled) return;
-
-      const listingRows = (completedListings ?? []) as CompletedListingRow[];
-
-      const posterIds = [
-        ...new Set(
-          listingRows
-            .map((row: CompletedListingRow) => row.posted_by)
-            .filter((id: string | null): id is string => !!id && id.length > 0),
-        ),
-      ];
-
-      let nameById: Record<string, string> = {};
-      if (posterIds.length > 0) {
-        const { data: posters } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", posterIds);
-        if (!cancelled && posters) {
-          const posterRows = posters as PosterNameRow[];
-          nameById = Object.fromEntries(
-            posterRows.map((p: PosterNameRow) => {
-              const fn = p.full_name != null ? String(p.full_name).trim() : "";
-              return [p.id, fn || "Neighbor"] as const;
-            }),
-          );
-        }
-      }
-
-      if (cancelled) return;
-
-      const entries: HistoryEntry[] = listingRows.map((row: CompletedListingRow) => {
-        const requester =
-          (row.posted_by && nameById[row.posted_by]) || "Neighbor";
-        const when = formatCompletedWhen(row.completed_at);
-        const mins = Number(row.duration_minutes) || 0;
-        const deltaHours = mins / 60;
-        return {
-          id: row.id,
-          emoji: "👏",
-          title: truncateListingTitle(
-            row.description?.trim() || "Helped a neighbor",
-          ),
-          detail: `with ${firstNameFromFull(requester)} · ${when}`,
-          deltaHours,
-        };
-      });
-      setHistory(entries);
-
-      const row = profile as {
-        full_name?: string | null;
-        username?: string | null;
-        radius_miles?: number | null;
-        hour_balance?: unknown;
-      } | null;
-      const name =
-        (row?.full_name && String(row.full_name).trim()) ||
-        fallbackName ||
-        (user.email?.split("@")[0] ?? "");
-      const username =
-        (row?.username && String(row.username).trim()) || fallbackUsername;
-
-      setDisplayName(name || "Neighbor");
-      setUsernameHandle(formatUsernameHandle(username));
-      setAvatarInitials(initialsFromName(name || username || "?"));
-
-      const mins = hourBalanceToMinutes(row?.hour_balance);
-      setBalanceMinutes(mins);
-      setGiftMinutes((m) =>
-        Math.min(Math.max(m, GIFT_STEP_MINUTES), Math.max(mins, GIFT_STEP_MINUTES)),
-      );
-
-      if (!radiusDirtyRef.current) {
-        const parsedRadius = parseRadiusMilesDb(row?.radius_miles);
-        if (parsedRadius != null) {
-          setRadiusMiles(parsedRadius);
-        }
-      }
-
-      setProfileLoaded(true);
-    }
-
-    void loadProfile();
-    return () => {
-      cancelled = true;
-      if (radiusSaveTimerRef.current) {
-        clearTimeout(radiusSaveTimerRef.current);
-        radiusSaveTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  async function persistRadiusMiles(miles: number) {
-    const uid = sessionUserIdRef.current;
-    if (!uid) return;
-    const radius_miles =
-      Math.round(
-        Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, miles)) * 1000,
-      ) / 1000;
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({ radius_miles })
-      .eq("id", uid)
-      .select("radius_miles");
-    if (error) {
-      console.error("Could not save radius:", error.message);
-      return;
-    }
-    if (!data?.length) {
-      console.error(
-        "Radius update affected no rows (check profile row and RLS).",
-      );
-    }
+  function persistRadiusMiles(miles: number) {
+    if (!sessionUserIdRef.current) return;
+    updateRadiusMutation.mutate(miles, {
+      onError: (err) => console.error("Could not save radius:", (err as Error).message),
+    });
   }
 
   function handleRadiusSliderChange(nextMiles: number) {
     radiusDirtyRef.current = true;
     setRadiusMiles(nextMiles);
     if (!sessionUserIdRef.current) return;
-    if (radiusSaveTimerRef.current) {
-      clearTimeout(radiusSaveTimerRef.current);
-    }
+    if (radiusSaveTimerRef.current) clearTimeout(radiusSaveTimerRef.current);
     radiusSaveTimerRef.current = setTimeout(() => {
       radiusSaveTimerRef.current = null;
-      void persistRadiusMiles(nextMiles);
+      persistRadiusMiles(nextMiles);
     }, RADIUS_SAVE_DEBOUNCE_MS);
   }
 
-  const radiusLabel = useMemo(
-    () => formatRadiusMi(radiusMiles),
-    [radiusMiles],
-  );
-
-  const giftCenter = useMemo(
-    () => giftStepCenterParts(giftMinutes),
-    [giftMinutes],
-  );
-
-  const balanceHoursLabel = useMemo(
-    () => formatBalanceHoursLabel(balanceMinutes),
-    [balanceMinutes],
-  );
+  const radiusLabel = useMemo(() => formatRadiusMi(radiusMiles), [radiusMiles]);
+  const giftCenter = useMemo(() => giftStepCenterParts(giftMinutes), [giftMinutes]);
+  const balanceHoursLabel = useMemo(() => formatBalanceHoursLabel(balanceMinutes), [balanceMinutes]);
 
   const canSendGift =
-    !!sessionUserId &&
+    !!user?.id &&
     !!selectedRecipient &&
     giftMinutes >= GIFT_STEP_MINUTES &&
     giftMinutes <= balanceMinutes &&
@@ -471,53 +308,32 @@ export default function YouPage() {
   async function handleSendGift() {
     const uid = sessionUserIdRef.current;
     if (!uid || !selectedRecipient) {
-      setGiftError(
-        uid ? "Pick a neighbor to gift." : "Sign in to gift hours.",
-      );
+      setGiftError(uid ? "Pick a neighbor to gift." : "Sign in to gift hours.");
       return;
     }
-
-    const giftHours = giftMinutes / 60;
     setGiftSending(true);
     setGiftError(null);
-
-    const supabase = getSupabase();
-    const { data, error } = await supabase.rpc("gift_hours", {
-      recipient_id: selectedRecipient.id,
-      gift_hours: giftHours,
-    });
-
-    setGiftSending(false);
-
-    if (error) {
-      setGiftError(
-        error.message || "Could not send hours. Try again.",
-      );
-      return;
+    try {
+      await giftHoursMutation.mutateAsync({
+        recipientId: selectedRecipient.id,
+        giftHours: giftMinutes / 60,
+      });
+      setSelectedRecipient(null);
+      setGiftSearchQuery("");
+      setGiftSearchResults([]);
+    } catch (err) {
+      setGiftError((err as Error).message || "Could not send hours. Try again.");
+    } finally {
+      setGiftSending(false);
     }
-
-    const mins = hourBalanceToMinutes(data);
-    setBalanceMinutes(mins);
-    setGiftMinutes((m) =>
-      Math.min(
-        Math.max(m, GIFT_STEP_MINUTES),
-        Math.max(mins, GIFT_STEP_MINUTES),
-      ),
-    );
-    setSelectedRecipient(null);
-    setGiftSearchQuery("");
-    setGiftSearchResults([]);
   }
 
   async function handleSignOut() {
     if (signOutLoading) return;
     setSignOutLoading(true);
-    const supabase = getSupabase();
-    const { error } = await supabase.auth.signOut();
+    const { error } = await getSupabase().auth.signOut();
     setSignOutLoading(false);
-    if (error) {
-      console.error("Sign out failed:", error.message);
-    }
+    if (error) console.error("Sign out failed:", error.message);
     router.replace("/auth/sign-in");
     router.refresh();
   }
@@ -538,9 +354,7 @@ export default function YouPage() {
               <p id="profile-name" className={tkYou.displayName}>
                 {profileLoaded ? displayName || "Neighbor" : "…"}
               </p>
-              <p className={tkYou.handle}>
-                {profileLoaded ? usernameHandle : "…"}
-              </p>
+              <p className={tkYou.handle}>{profileLoaded ? usernameHandle : "…"}</p>
               <p className={tkYou.balanceBadge}>
                 <ClockIcon className="text-tk-terracotta" />
                 {profileLoaded ? balanceHoursLabel : "…"}
@@ -550,18 +364,14 @@ export default function YouPage() {
         </section>
 
         <section aria-labelledby="myposts-heading">
-          <h2 id="myposts-heading" className="sr-only">
-            Your posts
-          </h2>
+          <h2 id="myposts-heading" className="sr-only">Your posts</h2>
           <Link href="/you/myposts" className={tkYou.myPostsNavLink}>
             <span className={tkYou.myPostsNavIconWrap} aria-hidden>
               <ListPostsIcon className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
               <span className={tkYou.giftTitle}>My posts</span>
-              <span className={tkYou.giftSub}>
-                View, edit, or delete your requests
-              </span>
+              <span className={tkYou.giftSub}>View, edit, or delete your requests</span>
             </span>
             <ChevronRightIcon className={tkYou.giftChevron} />
           </Link>
@@ -569,9 +379,7 @@ export default function YouPage() {
 
         <section aria-labelledby="history-heading">
           <div className={tkYou.sectionHeaderRow}>
-            <h2 id="history-heading" className={tkYou.sectionTitle}>
-              History
-            </h2>
+            <h2 id="history-heading" className={tkYou.sectionTitle}>History</h2>
             <p className={tkYou.sectionMeta}>
               {profileLoaded
                 ? `${history.length} exchange${history.length === 1 ? "" : "s"}`
@@ -583,24 +391,19 @@ export default function YouPage() {
               <p className="px-4 py-8 text-center text-sm text-tk-muted">…</p>
             ) : history.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-tk-muted">
-                When you mark a request complete, the hours you earned show up
-                here.
+                When you mark a request complete, the hours you earned show up here.
               </p>
             ) : (
               <ul className="divide-y divide-tk-border/80">
                 {history.map((row) => (
                   <li key={row.id}>
                     <div className={tkYou.historyRow}>
-                      <span className={tkYou.historyEmoji} aria-hidden>
-                        {row.emoji}
-                      </span>
+                      <span className={tkYou.historyEmoji} aria-hidden>{row.emoji}</span>
                       <div className={tkYou.historyBody}>
                         <p className={tkYou.historyTitle}>{row.title}</p>
                         <p className={tkYou.historySub}>{row.detail}</p>
                       </div>
-                      <p className={tkYou.historyDeltaPlus}>
-                        {formatDeltaHours(row.deltaHours)}
-                      </p>
+                      <p className={tkYou.historyDeltaPlus}>{formatDeltaHours(row.deltaHours)}</p>
                     </div>
                   </li>
                 ))}
@@ -610,15 +413,8 @@ export default function YouPage() {
         </section>
 
         <section aria-labelledby="gift-heading">
-          <h2 id="gift-heading" className="sr-only">
-            Gift hours
-          </h2>
-          <div
-            className={cn(
-              tkYou.giftDisclosure,
-              giftOpen && tkYou.giftDisclosureOpen,
-            )}
-          >
+          <h2 id="gift-heading" className="sr-only">Gift hours</h2>
+          <div className={cn(tkYou.giftDisclosure, giftOpen && tkYou.giftDisclosureOpen)}>
             <button
               type="button"
               id="gift-hours-trigger"
@@ -627,19 +423,12 @@ export default function YouPage() {
               onClick={() => setGiftOpen((o) => !o)}
               className={tkYou.giftTrigger}
             >
-              <span
-                className={cn(
-                  tkYou.giftIconWrap,
-                  giftOpen && tkYou.giftIconWrapOpen,
-                )}
-              >
+              <span className={cn(tkYou.giftIconWrap, giftOpen && tkYou.giftIconWrapOpen)}>
                 <GiftIcon className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className={tkYou.giftTitle}>Gift hours</span>
-                <span className={tkYou.giftSub}>
-                  Share your hours with a neighbor
-                </span>
+                <span className={tkYou.giftSub}>Share your hours with a neighbor</span>
               </span>
               {giftOpen ? (
                 <ChevronDownIcon className={tkYou.giftChevron} />
@@ -674,8 +463,7 @@ export default function YouPage() {
                     }}
                     className={tkYou.giftSearchInput}
                   />
-                  {giftSearchDropdownOpen &&
-                  giftSearchQuery.trim().length > 0 ? (
+                  {giftSearchDropdownOpen && giftSearchQuery.trim().length > 0 ? (
                     <div
                       className={tkYou.giftSearchResults}
                       role="listbox"
@@ -689,13 +477,9 @@ export default function YouPage() {
                         giftSearchResults.map((r) => {
                           const fn = r.full_name?.trim();
                           const un = r.username?.trim();
-                          const label =
-                            fn || (un ? `@${un}` : "Neighbor");
-                          const initials = initialsFromName(
-                            fn || un || "?",
-                          );
-                          const selected =
-                            selectedRecipient?.id === r.id;
+                          const label = fn || (un ? `@${un}` : "Neighbor");
+                          const initials = initialsFromName(fn || un || "?");
+                          const selected = selectedRecipient?.id === r.id;
                           return (
                             <button
                               key={r.id}
@@ -724,9 +508,7 @@ export default function YouPage() {
                                   {label}
                                 </span>
                                 {fn && un ? (
-                                  <span className="block truncate text-xs text-tk-muted">
-                                    @{un}
-                                  </span>
+                                  <span className="block truncate text-xs text-tk-muted">@{un}</span>
                                 ) : null}
                               </span>
                             </button>
@@ -737,8 +519,7 @@ export default function YouPage() {
                   ) : null}
                 </div>
                 <p className={tkYou.giftSearchHint}>
-                  Choose someone from the list—hours send only to the selected
-                  profile.
+                  Choose someone from the list—hours send only to the selected profile.
                 </p>
 
                 <div className={tkYou.giftStepperSection}>
@@ -754,12 +535,8 @@ export default function YouPage() {
                       −
                     </button>
                     <div className={tkYou.giftHourCenter}>
-                      <span className={tkYou.giftHourValue}>
-                        {giftCenter.num}
-                      </span>
-                      <span className={tkYou.giftHourWord}>
-                        {giftCenter.unit}
-                      </span>
+                      <span className={tkYou.giftHourValue}>{giftCenter.num}</span>
+                      <span className={tkYou.giftHourWord}>{giftCenter.unit}</span>
                     </div>
                     <button
                       type="button"
@@ -790,9 +567,7 @@ export default function YouPage() {
                 </button>
 
                 {giftError ? (
-                  <p className={tkYou.giftErrorText} role="alert">
-                    {giftError}
-                  </p>
+                  <p className={tkYou.giftErrorText} role="alert">{giftError}</p>
                 ) : null}
               </div>
             ) : null}
@@ -800,14 +575,10 @@ export default function YouPage() {
         </section>
 
         <section aria-labelledby="settings-heading">
-          <h2 id="settings-heading" className={tkYou.sectionTitle}>
-            Settings
-          </h2>
+          <h2 id="settings-heading" className={tkYou.sectionTitle}>Settings</h2>
           <div className={tkYou.settingsCard}>
             <div className={tkYou.settingsRow}>
-              <span className={tkYou.settingsIconWrap}>
-                <PinIcon />
-              </span>
+              <span className={tkYou.settingsIconWrap}><PinIcon /></span>
               <div className={tkYou.settingsLabelCol}>
                 <div className="flex items-center justify-between gap-3">
                   <p className={tkYou.settingsLabel}>Radius</p>
@@ -820,17 +591,14 @@ export default function YouPage() {
                   max={RADIUS_MAX}
                   step={RADIUS_STEP}
                   value={radiusMiles}
-                  onChange={(e) =>
-                    handleRadiusSliderChange(Number(e.target.value))
-                  }
+                  onChange={(e) => handleRadiusSliderChange(Number(e.target.value))}
                   onPointerUp={(e) => {
-                    const el = e.currentTarget;
                     if (!sessionUserIdRef.current) return;
                     if (radiusSaveTimerRef.current) {
                       clearTimeout(radiusSaveTimerRef.current);
                       radiusSaveTimerRef.current = null;
                     }
-                    void persistRadiusMiles(Number(el.value));
+                    persistRadiusMiles(Number(e.currentTarget.value));
                   }}
                   aria-label="Neighborhood radius"
                 />
@@ -840,9 +608,7 @@ export default function YouPage() {
             <div className={tkYou.settingsRowDivider} />
 
             <div className={tkYou.settingsRow}>
-              <span className={tkYou.settingsIconWrap}>
-                <LogOutIcon />
-              </span>
+              <span className={tkYou.settingsIconWrap}><LogOutIcon /></span>
               <button
                 type="button"
                 className={tkYou.signOutButton}

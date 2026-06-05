@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabase } from "@/lib/supabase/client";
 import { DatePickerField } from "./components/DatePickerField";
 import { ChevronLeftIcon } from "./components/icons";
 import { cn, tkAsk } from "./formStyles";
+import { useCurrentUser, useProfile } from "@/lib/queries/profile";
+import { useCreateListing } from "@/lib/mutations/listings";
 
 const DURATION_MIN = 30;
 const DURATION_MAX = 240;
@@ -31,8 +32,7 @@ function todayIsoDate(): string {
 
 function hourBalanceToNumber(raw: unknown): number {
   if (raw == null) return 0;
-  const n =
-    typeof raw === "string" ? parseFloat(raw) : Number(raw);
+  const n = typeof raw === "string" ? parseFloat(raw) : Number(raw);
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -41,145 +41,83 @@ export default function AskPage() {
   const [need, setNeed] = useState("");
   const [durationMins, setDurationMins] = useState(60);
   const [neededDay, setNeededDay] = useState<string>(() => todayIsoDate());
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  /** `null` until first profile fetch */
-  const [balanceHours, setBalanceHours] = useState<number | null>(null);
 
+  const { data: user } = useCurrentUser();
+  const { data: profile, isPending: profilePending } = useProfile(user?.id);
+  const createListing = useCreateListing();
+
+  const balanceHours = profilePending ? null : hourBalanceToNumber(profile?.hour_balance);
   const balanceMins = (balanceHours ?? 0) * 60;
   const maxAffordableMins =
     balanceMins >= DURATION_MIN
-      ? Math.min(
-          DURATION_MAX,
-          Math.floor(balanceMins / DURATION_STEP) * DURATION_STEP,
-        )
+      ? Math.min(DURATION_MAX, Math.floor(balanceMins / DURATION_STEP) * DURATION_STEP)
       : 0;
   const canAffordAnyTask = maxAffordableMins >= DURATION_MIN;
-  const durationFitsBalance =
-    balanceHours === null || durationMins <= balanceMins + 1e-9;
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const supabase = getSupabase();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        if (!cancelled) setBalanceHours(0);
-        return;
-      }
-      const { data } = await supabase
-        .from("profiles")
-        .select("hour_balance")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (!cancelled) {
-        setBalanceHours(hourBalanceToNumber(data?.hour_balance));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const durationFitsBalance = balanceHours === null || durationMins <= balanceMins + 1e-9;
 
   useEffect(() => {
     if (balanceHours === null || !canAffordAnyTask) return;
-    setDurationMins((d) =>
-      Math.min(Math.max(d, DURATION_MIN), maxAffordableMins),
-    );
+    setDurationMins((d) => Math.min(Math.max(d, DURATION_MIN), maxAffordableMins));
   }, [balanceHours, maxAffordableMins, canAffordAnyTask]);
 
   const canSubmit =
     need.trim().length > 0 &&
     neededDay.length > 0 &&
-    !isSubmitting &&
+    !createListing.isPending &&
     balanceHours !== null &&
     canAffordAnyTask &&
     durationFitsBalance;
 
-  const durationLabel = useMemo(
-    () => formatDurationLabel(durationMins),
-    [durationMins],
-  );
+  const durationLabel = useMemo(() => formatDurationLabel(durationMins), [durationMins]);
 
   async function handlePostRequest() {
-    if (isSubmitting) return;
+    if (createListing.isPending) return;
     if (!need.trim() || !neededDay.length) return;
     setSubmitError(null);
-    setIsSubmitting(true);
 
-    const supabase = getSupabase();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) {
-      setIsSubmitting(false);
       setSubmitError("You need to be signed in to post.");
-      return;
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("lat, lng, full_name, hour_balance")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      setIsSubmitting(false);
-      setSubmitError(profileError.message);
       return;
     }
 
     const lat = profile?.lat ?? null;
     const lng = profile?.lng ?? null;
     if (lat == null || lng == null) {
-      setIsSubmitting(false);
-      setSubmitError(
-        "Add your location to your profile before posting a request.",
-      );
+      setSubmitError("Add your location to your profile before posting a request.");
       return;
     }
 
     const hoursAvailable = hourBalanceToNumber(profile?.hour_balance);
     if (durationMins / 60 > hoursAvailable + 1e-9) {
-      setIsSubmitting(false);
       setSubmitError(
         "This task is longer than your hour balance. Shorten the time or earn more hours first.",
       );
-      setBalanceHours(hoursAvailable);
       return;
     }
 
-    const { error: insertError } = await supabase.from("listings").insert({
-      posted_by: user.id,
-      posted_by_name: profile?.full_name || null,
-      description: need.trim(),
-      duration_minutes: durationMins,
-      needed_by: neededDay,
-      lat,
-      lng,
-      status: "open",
-    });
-
-    setIsSubmitting(false);
-    if (insertError) {
-      setSubmitError(insertError.message);
-      return;
+    try {
+      await createListing.mutateAsync({
+        posted_by: user.id,
+        posted_by_name: profile?.full_name ?? null,
+        description: need.trim(),
+        duration_minutes: durationMins,
+        needed_by: neededDay,
+        lat,
+        lng,
+        status: "open",
+      });
+      router.push("/ask/success");
+    } catch (err) {
+      setSubmitError((err as Error).message);
     }
-
-    router.push("/ask/success");
   }
 
   return (
     <div className={tkAsk.shell}>
       <main className={tkAsk.main}>
         <header className={tkAsk.headerRow}>
-          <Link
-            href="/home"
-            className={tkAsk.backButton}
-            aria-label="Back to home"
-          >
+          <Link href="/home" className={tkAsk.backButton} aria-label="Back to home">
             <ChevronLeftIcon className="text-tk-forest" />
           </Link>
           <h1 className={tkAsk.headerTitle}>Ask for help</h1>
@@ -216,30 +154,23 @@ export default function AskPage() {
             onChange={(e) => setDurationMins(Number(e.target.value))}
             disabled={balanceHours !== null && !canAffordAnyTask}
             aria-valuemin={DURATION_MIN}
-            aria-valuemax={
-              canAffordAnyTask ? maxAffordableMins : DURATION_MAX
-            }
+            aria-valuemax={canAffordAnyTask ? maxAffordableMins : DURATION_MAX}
             aria-valuenow={durationMins}
             aria-label="Estimated duration"
           />
           <div className={tkAsk.sliderLabelsRow}>
             <span>30 min</span>
             <span>
-              {canAffordAnyTask
-                ? formatDurationLabel(maxAffordableMins)
-                : "4 hours"}{" "}
-              max
+              {canAffordAnyTask ? formatDurationLabel(maxAffordableMins) : "4 hours"} max
             </span>
           </div>
           {balanceHours !== null && !canAffordAnyTask ? (
             <p className={tkAsk.submitError} role="status">
-              You need at least 30 minutes in your hour balance to post a
-              request.
+              You need at least 30 minutes in your hour balance to post a request.
             </p>
           ) : balanceHours !== null && !durationFitsBalance ? (
             <p className={tkAsk.submitError} role="status">
-              Choose a duration up to {formatDurationLabel(maxAffordableMins)}{" "}
-              (your current balance).
+              Choose a duration up to {formatDurationLabel(maxAffordableMins)} (your current balance).
             </p>
           ) : null}
         </section>
@@ -248,11 +179,7 @@ export default function AskPage() {
           <p id="when-label" className={tkAsk.sectionLabel}>
             When do you need it?
           </p>
-          <DatePickerField
-            id="needed-day"
-            value={neededDay}
-            onChange={setNeededDay}
-          />
+          <DatePickerField id="needed-day" value={neededDay} onChange={setNeededDay} />
         </section>
 
         {submitError ? (
@@ -265,12 +192,9 @@ export default function AskPage() {
           type="button"
           disabled={!canSubmit}
           onClick={handlePostRequest}
-          className={cn(
-            tkAsk.primaryButton,
-            !canSubmit && tkAsk.primaryButtonDisabled,
-          )}
+          className={cn(tkAsk.primaryButton, !canSubmit && tkAsk.primaryButtonDisabled)}
         >
-          {isSubmitting ? "Posting…" : "Post your request"}
+          {createListing.isPending ? "Posting…" : "Post your request"}
         </button>
       </main>
     </div>
