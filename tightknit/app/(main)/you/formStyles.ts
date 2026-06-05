@@ -67,7 +67,7 @@ export const tkYou = {
     "overflow-hidden rounded-3xl border border-tk-border bg-tk-card shadow-sm shadow-black/[0.03]",
 
   giftDisclosureOpen:
-    "border-2 border-tk-terracotta/85 shadow-[0_1px_0_rgba(199,91,66,0.06)]",
+    "border-2 border-tk-terracotta/85 shadow-tk-terracotta-subtle",
 
   giftTrigger:
     "flex w-full items-center gap-3 p-4 text-left outline-none transition hover:bg-tk-cream-deep/20 focus-visible:ring-2 focus-visible:ring-tk-terracotta/25 active:bg-tk-cream-deep/30",

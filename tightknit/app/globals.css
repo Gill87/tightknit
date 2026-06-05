@@ -3,12 +3,6 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --color-bg: #f5ede3;
-  --color-surface: #ede6da;
-  --color-primary: #c17945;
-  --color-text: #2d2118;
-  --color-muted: #9e9289;
-  --color-border: #d9cfc3;
 
   /* Tightknit palette */
   --tk-cream: #faf7f0;
@@ -27,6 +21,7 @@
 
   --tk-shadow-balance: 0 10px 40px -12px rgba(30, 64, 52, 0.18);
   --tk-shadow-cta: 0 10px 28px -8px rgba(199, 91, 66, 0.35);
+  --tk-shadow-terracotta-subtle: 0 1px 0 rgba(199, 91, 66, 0.06);
 }
 
 @theme inline {
@@ -48,10 +43,14 @@
   --color-tk-chip-active: var(--tk-chip-active);
   --color-tk-blush: var(--tk-blush);
   --color-tk-avatar-warm: var(--tk-avatar-warm);
+
+  --shadow-tk-balance: var(--tk-shadow-balance);
+  --shadow-tk-cta: var(--tk-shadow-cta);
+  --shadow-tk-terracotta-subtle: var(--tk-shadow-terracotta-subtle);
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--tk-cream);
+  color: var(--tk-forest);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }

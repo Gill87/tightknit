@@ -121,7 +121,7 @@ export default function LocationPage() {
             <div
               className={mapCard}
               style={{
-                background: 'var(--color-surface)',
+                background: 'var(--tk-cream-deep)',
                 backgroundImage:
                   'linear-gradient(var(--tk-border) 1px, transparent 1px), linear-gradient(90deg, var(--tk-border) 1px, transparent 1px)',
                 backgroundSize: '36px 36px',
@@ -133,15 +133,14 @@ export default function LocationPage() {
                   cx="200"
                   cy="120"
                   r={circleR}
-                  fill="rgba(193,121,69,0.15)"
-                  stroke="rgba(193,121,69,0.35)"
                   strokeWidth="1.5"
+                  className="fill-tk-terracotta/15 stroke-tk-terracotta/35"
                   style={{ transition: 'r 0.2s ease' }}
                 />
                 {/* Pin outer circle */}
-                <circle cx="200" cy="120" r="20" fill="rgba(193,121,69,0.25)" />
+                <circle cx="200" cy="120" r="20" className="fill-tk-terracotta/25" />
                 {/* Pin dot */}
-                <circle cx="200" cy="120" r="13" fill="var(--color-primary)" />
+                <circle cx="200" cy="120" r="13" className="fill-tk-terracotta" />
                 {/* Pin white center */}
                 <circle cx="200" cy="120" r="5" fill="white" />
               </svg>

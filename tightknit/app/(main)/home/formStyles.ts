@@ -23,7 +23,7 @@ export const tkHome = {
   heroRow: "flex gap-3 items-stretch",
 
   balanceSection:
-    "flex-[3] flex flex-col justify-between rounded-3xl bg-tk-forest px-4 py-5 shadow-[var(--tk-shadow-balance)]",
+    "flex-[3] flex flex-col justify-between rounded-3xl bg-tk-forest px-4 py-5 shadow-tk-balance",
 
   balanceLabel: "text-sm text-tk-mint/95",
 
@@ -33,7 +33,7 @@ export const tkHome = {
     "mt-2 text-xs leading-relaxed text-tk-mint/90",
 
   askHelpButton:
-    "flex-[2] flex flex-col items-start justify-end gap-2 rounded-3xl bg-tk-terracotta px-4 pb-4 pt-5 text-left shadow-[var(--tk-shadow-cta)] transition hover:bg-tk-terracotta-hover active:scale-[0.98]",
+    "flex-[2] flex flex-col items-start justify-end gap-2 rounded-3xl bg-tk-terracotta px-4 pb-4 pt-5 text-left shadow-tk-cta transition hover:bg-tk-terracotta-hover active:scale-[0.98]",
 
   askHelpLabel: "text-base font-semibold leading-tight text-white",
 

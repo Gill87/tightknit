@@ -72,7 +72,7 @@ export const tkRequest = {
   earnHint: "mt-0.5 text-[13px] leading-snug text-tk-muted",
 
   primaryCta:
-    "mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full bg-tk-terracotta px-5 py-4 text-base font-semibold text-white shadow-[var(--tk-shadow-cta)] transition hover:bg-tk-terracotta-hover active:scale-[0.99]",
+    "mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full bg-tk-terracotta px-5 py-4 text-base font-semibold text-white shadow-tk-cta transition hover:bg-tk-terracotta-hover active:scale-[0.99]",
 
   secondaryCta:
     "inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-tk-forest bg-transparent px-5 py-3.5 text-base font-semibold text-tk-forest transition hover:bg-tk-cream-deep active:scale-[0.99]",
