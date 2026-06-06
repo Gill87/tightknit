@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
             <span aria-hidden>✉️</span>
             <p className={successPanelTitle}>Reset link sent!</p>
             <p className={successPanelBody}>
-              We've sent a password reset link to{' '}
+              We&apos;ve sent a password reset link to{' '}
               <span className={successPanelEmail}>{email}</span>
             </p>
             <p className={successPanelBody}>Check your inbox.</p>
@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
       <div className={pageInner}>
         <h1 className={signInHeading}>Forgot password?</h1>
         <p className={signInSubtitle}>
-          Enter your email and we'll send you a reset link.
+          Enter your email and we&apos;ll send you a reset link.
         </p>
 
         <form className={formRoot} onSubmit={handleSubmit}>

@@ -98,7 +98,7 @@ function SuperpowersInner() {
           <div className={s.progressSegmentActive} />
         </div>
 
-        <h1 className={s.heading}>What's your superpower?</h1>
+        <h1 className={s.heading}>What&apos;s your superpower?</h1>
         <p className={s.subtitle}>What could you help a neighbor with?</p>
 
         <input

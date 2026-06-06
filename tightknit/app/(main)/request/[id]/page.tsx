@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase/client";
 import {
   CalendarIcon,
-  ChatIcon,
   ChevronLeftIcon,
   ClockIcon,
   PinIcon,
