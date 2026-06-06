@@ -10,7 +10,7 @@ export function cn(...classes: Array<string | false | undefined | null>) {
 export const tkFooter = {
   bar: cn(
     "fixed inset-x-0 bottom-0 z-50 shrink-0 border-t border-tk-border bg-tk-cream",
-    "pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2",
+    "pb-[calc(max(0.5rem,env(safe-area-inset-bottom))+var(--tk-pwa-bottom-padding))] pt-2",
   ),
 
   list: "mx-auto flex max-w-md items-stretch justify-around px-2",

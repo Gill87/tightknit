@@ -15,7 +15,7 @@ export function FooterProvider({ children }: { children: React.ReactNode }) {
         className={
           hidden
             ? "flex min-h-0 min-w-0 flex-1 flex-col"
-            : "flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(4rem+max(0.5rem,env(safe-area-inset-bottom)))]"
+            : "flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(4rem+max(0.5rem,env(safe-area-inset-bottom))+var(--tk-pwa-bottom-padding))]"
         }
       >
         {children}
