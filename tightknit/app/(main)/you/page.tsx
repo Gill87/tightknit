@@ -335,7 +335,6 @@ export default function YouPage() {
     setSignOutLoading(false);
     if (error) console.error("Sign out failed:", error.message);
     router.replace("/auth/sign-in");
-    router.refresh();
   }
 
   return (
