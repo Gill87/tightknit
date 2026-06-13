@@ -21,13 +21,14 @@ export const tkMessages = {
       "h-12 w-12 rounded-full flex items-center justify-center text-base font-semibold",
       AVATAR_COLORS[colorIndex % AVATAR_COLORS.length],
     ),
-  badge:
-    "absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-tk-terracotta text-white text-[10px] font-bold flex items-center justify-center",
   body: "flex-1 min-w-0",
   nameRow: "flex items-baseline justify-between gap-2",
   name: "text-[15px] font-semibold text-tk-forest truncate",
   time: "text-xs text-tk-muted shrink-0",
-  preview: "text-sm text-tk-muted truncate mt-0.5",
+  previewRow: "flex items-center gap-2 mt-0.5",
+  preview: "flex-1 min-w-0 text-sm text-tk-muted truncate",
+  unreadBadge:
+    "shrink-0 h-5 w-5 rounded-full bg-tk-terracotta text-white text-[11px] font-semibold flex items-center justify-center tabular-nums",
 };
 
 export const tkRoom = {

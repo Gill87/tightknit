@@ -8,6 +8,8 @@ import {
   parseListingRoom,
   resolveParticipantDisplayName,
 } from "@/lib/messaging/participantDisplayName";
+import { markRoomRead } from "@/lib/messaging/readStatus";
+import { queryClient } from "@/lib/queryClient";
 import { useChat } from "../hooks/useChat";
 import { ChatHeader } from "./components/ChatHeader";
 import { MessageBubble } from "./components/MessageBubble";
@@ -66,6 +68,12 @@ export default function RoomPage({
   const [listingCompletion, setListingCompletion] =
     useState<ListingCompletionRow | null>(null);
   const [completeBusy, setCompleteBusy] = useState(false);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    markRoomRead(currentUserId, room_id);
+    void queryClient.invalidateQueries({ queryKey: ['conversations', currentUserId] });
+  }, [currentUserId, room_id]);
 
   useEffect(() => {
     if (!currentUserData) return;

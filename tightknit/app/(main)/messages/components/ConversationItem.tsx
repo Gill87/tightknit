@@ -17,16 +17,20 @@ export function ConversationItem({
     <Link href={`/messages/${conversation.roomId}`} className={tkMessages.row}>
       <div className={tkMessages.avatarWrap}>
         <div className={tkMessages.avatar(index)}>{initial}</div>
-        {conversation.unreadCount > 0 && (
-          <span className={tkMessages.badge}>{conversation.unreadCount}</span>
-        )}
       </div>
       <div className={tkMessages.body}>
         <div className={tkMessages.nameRow}>
           <span className={tkMessages.name}>{conversation.participantName}</span>
           <span className={tkMessages.time}>{conversation.timestamp}</span>
         </div>
-        <p className={tkMessages.preview}>{conversation.lastMessage}</p>
+        <div className={tkMessages.previewRow}>
+          <p className={tkMessages.preview}>{conversation.lastMessage}</p>
+          {conversation.unreadCount > 0 && (
+            <span className={tkMessages.unreadBadge}>
+              {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );

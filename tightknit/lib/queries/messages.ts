@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { getSupabase } from '@/lib/supabase/client'
 import { parseListingRoom, resolveParticipantDisplayName } from '@/lib/messaging/participantDisplayName'
+import { getLastRead } from '@/lib/messaging/readStatus'
+import { useCurrentUser } from '@/lib/queries/profile'
 
 export type Conversation = {
   id: string
@@ -34,8 +36,12 @@ export function useConversations(userId: string | null | undefined) {
       if (!msgs?.length) return []
 
       const roomMap = new Map<string, (typeof msgs)[0]>()
+      const roomMessages = new Map<string, (typeof msgs)>()
       for (const msg of msgs) {
         if (!roomMap.has(msg.room_id)) roomMap.set(msg.room_id, msg)
+        const arr = roomMessages.get(msg.room_id) ?? []
+        arr.push(msg)
+        roomMessages.set(msg.room_id, arr)
       }
 
       const rooms = [...roomMap.entries()].map(([roomId, msg]) => {
@@ -77,13 +83,17 @@ export function useConversations(userId: string | null | undefined) {
 
       return rooms.map((row, i): Conversation => {
         if (row.invalidRoom) {
+          const lastRead = getLastRead(userId!, row.roomId)
+          const unreadCount = (roomMessages.get(row.roomId) ?? []).filter(
+            (m: { sender_id: string; created_at: string }) => m.sender_id !== userId && (!lastRead || new Date(m.created_at) > lastRead)
+          ).length
           return {
             id: String(i),
             roomId: row.roomId,
             participantName: 'Invalid conversation',
             lastMessage: row.msg.content,
             timestamp: timeAgo(row.msg.created_at),
-            unreadCount: 0,
+            unreadCount,
           }
         }
         const { roomId, listingId, otherUserId, msg } = row as {
@@ -103,17 +113,27 @@ export function useConversations(userId: string | null | undefined) {
         if (name === 'Neighbor') {
           console.warn('[messages] no name resolved', { listingId, otherUserId, listingFound: !!listing })
         }
+        const lastRead = getLastRead(userId!, roomId)
+        const unreadCount = (roomMessages.get(roomId) ?? []).filter(
+          (m: { sender_id: string; created_at: string }) => m.sender_id !== userId && (!lastRead || new Date(m.created_at) > lastRead)
+        ).length
         return {
           id: String(i),
           roomId,
           participantName: name,
           lastMessage: msg.content,
           timestamp: timeAgo(msg.created_at),
-          unreadCount: 0,
+          unreadCount,
         }
       })
     },
     enabled: !!userId,
     staleTime: 30_000,
   })
+}
+
+export function useUnreadChatsCount(): number {
+  const { data: user } = useCurrentUser()
+  const { data: conversations = [] } = useConversations(user?.id)
+  return conversations.filter(c => c.unreadCount > 0).length
 }

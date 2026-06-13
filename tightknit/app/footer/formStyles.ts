@@ -23,4 +23,10 @@ export const tkFooter = {
 
   icon: (active: boolean) =>
     cn("h-6 w-6", active ? "text-tk-terracotta" : "text-current"),
+
+  navBadge: cn(
+    "absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center",
+    "rounded-full bg-tk-terracotta px-[3px] text-[9px] font-bold leading-none text-white",
+    "tabular-nums pointer-events-none",
+  ),
 };
