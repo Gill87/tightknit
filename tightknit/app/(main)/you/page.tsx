@@ -135,6 +135,13 @@ function sendGiftLabelMinutes(mins: number): string {
   return `Send ${n} hours`;
 }
 
+function clampGiftMinutes(mins: number, balanceMinutes: number): number {
+  return Math.min(
+    Math.max(mins, GIFT_STEP_MINUTES),
+    Math.max(balanceMinutes, GIFT_STEP_MINUTES)
+  );
+}
+
 export default function YouPage() {
   const router = useRouter();
   const [signOutLoading, setSignOutLoading] = useState(false);
@@ -166,7 +173,7 @@ export default function YouPage() {
     sessionUserIdRef.current = user?.id ?? null;
   }, [user?.id]);
 
-  // Cap giftMinutes to balance whenever balance changes
+  // Derive a valid gift duration from the latest balance without causing extra renders.
   const balanceMinutes = useMemo(
     () => (profile ? hourBalanceToMinutes(profile.hour_balance) : DEFAULT_HOUR_BALANCE * 60),
     [profile]
@@ -178,12 +185,10 @@ export default function YouPage() {
   );
   const displayRadiusMiles = radiusDirty ? radiusMiles : profileRadiusMiles ?? radiusMiles;
 
-  useEffect(() => {
-    if (!profile) return;
-    setGiftMinutes((m) =>
-      Math.min(Math.max(m, GIFT_STEP_MINUTES), Math.max(balanceMinutes, GIFT_STEP_MINUTES))
-    );
-  }, [balanceMinutes, profile]);
+  const clampedGiftMinutes = useMemo(
+    () => clampGiftMinutes(giftMinutes, balanceMinutes),
+    [balanceMinutes, giftMinutes]
+  );
 
   // Derived display values
   const { displayName, usernameHandle, avatarInitials } = useMemo(() => {
@@ -287,21 +292,18 @@ export default function YouPage() {
   }
 
   const radiusLabel = useMemo(() => formatRadiusMi(displayRadiusMiles), [displayRadiusMiles]);
-  const giftCenter = useMemo(() => giftStepCenterParts(giftMinutes), [giftMinutes]);
+  const giftCenter = useMemo(() => giftStepCenterParts(clampedGiftMinutes), [clampedGiftMinutes]);
   const balanceHoursLabel = useMemo(() => formatBalanceHoursLabel(balanceMinutes), [balanceMinutes]);
 
   const canSendGift =
     !!user?.id &&
     !!selectedRecipient &&
-    giftMinutes >= GIFT_STEP_MINUTES &&
-    giftMinutes <= balanceMinutes &&
+    clampedGiftMinutes >= GIFT_STEP_MINUTES &&
+    clampedGiftMinutes <= balanceMinutes &&
     !giftSending;
 
   const bumpGiftMinutes = (delta: number) => {
-    setGiftMinutes((m) => {
-      const next = m + delta;
-      return Math.min(balanceMinutes, Math.max(GIFT_STEP_MINUTES, next));
-    });
+    setGiftMinutes(clampGiftMinutes(clampedGiftMinutes + delta, balanceMinutes));
   };
 
   async function handleSendGift() {
@@ -315,7 +317,7 @@ export default function YouPage() {
     try {
       await giftHoursMutation.mutateAsync({
         recipientId: selectedRecipient.id,
-        giftHours: giftMinutes / 60,
+        giftHours: clampedGiftMinutes / 60,
       });
       setSelectedRecipient(null);
       setGiftSearchQuery("");
@@ -527,7 +529,7 @@ export default function YouPage() {
                       type="button"
                       className={tkYou.giftStepperBtn}
                       aria-label="Decrease duration"
-                      disabled={giftMinutes <= GIFT_STEP_MINUTES}
+                      disabled={clampedGiftMinutes <= GIFT_STEP_MINUTES}
                       onClick={() => bumpGiftMinutes(-GIFT_STEP_MINUTES)}
                     >
                       −
@@ -540,7 +542,7 @@ export default function YouPage() {
                       type="button"
                       className={tkYou.giftStepperBtn}
                       aria-label="Increase duration"
-                      disabled={giftMinutes >= balanceMinutes}
+                      disabled={clampedGiftMinutes >= balanceMinutes}
                       onClick={() => bumpGiftMinutes(GIFT_STEP_MINUTES)}
                     >
                       +
@@ -558,7 +560,7 @@ export default function YouPage() {
                     "Sending…"
                   ) : (
                     <>
-                      {sendGiftLabelMinutes(giftMinutes)}
+                      {sendGiftLabelMinutes(clampedGiftMinutes)}
                       <ArrowRightIcon className="shrink-0 opacity-90" />
                     </>
                   )}
