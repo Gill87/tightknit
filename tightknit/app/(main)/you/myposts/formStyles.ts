@@ -51,4 +51,16 @@ export const tkMyPosts = {
     "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-tk-border bg-tk-cream-deep text-tk-forest transition hover:bg-white active:scale-[0.97]",
 
   headerTitle: "text-xl font-semibold leading-snug text-tk-forest",
+
+  overlay:
+    "fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-6",
+  dialog:
+    "w-full max-w-xs rounded-3xl border border-tk-border bg-tk-card p-6 shadow-xl",
+  dialogTitle: "text-base font-semibold text-tk-forest",
+  dialogBody: "mt-2 text-sm leading-relaxed text-tk-muted",
+  dialogActions: "mt-5 flex gap-3",
+  dialogBtnDelete:
+    "flex-1 rounded-full bg-tk-terracotta py-3 text-sm font-semibold text-white transition active:bg-tk-terracotta-hover",
+  dialogBtnCancel:
+    "flex-1 rounded-full border border-tk-border bg-tk-card py-3 text-sm font-semibold text-tk-forest transition active:bg-tk-cream-deep",
 } as const;

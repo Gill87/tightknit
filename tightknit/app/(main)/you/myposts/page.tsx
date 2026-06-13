@@ -63,6 +63,33 @@ function draftDurationMinutes(row: ListingRow): number {
   return Math.min(DURATION_MAX, Math.max(DURATION_MIN, row.duration_minutes ?? DURATION_MIN));
 }
 
+function DeleteConfirmModal({
+  claimed,
+  onConfirm,
+  onCancel,
+}: {
+  claimed: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className={tkMyPosts.overlay} role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+      <div className={tkMyPosts.dialog}>
+        <h2 id="delete-dialog-title" className={tkMyPosts.dialogTitle}>Delete Post</h2>
+        <p className={tkMyPosts.dialogBody}>
+          {claimed
+            ? "Are you sure that you would like to delete this post? Someone had claimed it — they may still see an old link."
+            : "Are you sure that you would like to delete this post?"}
+        </p>
+        <div className={tkMyPosts.dialogActions}>
+          <button type="button" className={tkMyPosts.dialogBtnCancel} onClick={onCancel}>Cancel</button>
+          <button type="button" className={tkMyPosts.dialogBtnDelete} onClick={onConfirm}>Delete</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ListingCard({
   row,
   onUpdated,
@@ -78,6 +105,7 @@ function ListingCard({
   const [draftMins, setDraftMins] = useState(draftDurationMinutes(row));
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const resetDraftsFromRow = () => {
     setDraftDesc(row.description ?? "");
@@ -114,16 +142,15 @@ function ListingCard({
     if (data) { onUpdated(data as ListingRow); closeEditor(); }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deletable || saving) return;
-    const ok = window.confirm(
-      row.claimed_by
-        ? "Delete this request? Someone had claimed it—they may still see an old link."
-        : "Delete this request?",
-    );
-    if (!ok) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
     setSaving(true);
     setLocalError(null);
+    setShowDeleteConfirm(false);
     const { error } = await getSupabase().from("listings").delete().eq("id", row.id);
     setSaving(false);
     if (error) { setLocalError(error.message); return; }
@@ -152,7 +179,7 @@ function ListingCard({
         <button type="button" className={tkMyPosts.iconBtn} disabled={!editable || saving} aria-label="Edit duration" onClick={() => toggleEditor("duration")}>
           <ClockIcon className="h-[18px] w-[18px] text-tk-terracotta" />
         </button>
-        <button type="button" className={cn(tkMyPosts.iconBtn, tkMyPosts.iconBtnDanger)} disabled={!deletable || saving} aria-label="Delete post" onClick={() => void handleDelete()}>
+        <button type="button" className={cn(tkMyPosts.iconBtn, tkMyPosts.iconBtnDanger)} disabled={!deletable || saving} aria-label="Delete post" onClick={handleDelete}>
           <TrashIcon className="h-[18px] w-[18px]" />
         </button>
       </div>
@@ -209,6 +236,14 @@ function ListingCard({
 
       {localError ? (
         <p className={cn(tkMyPosts.errorText, "mt-2")} role="alert">{localError}</p>
+      ) : null}
+
+      {showDeleteConfirm ? (
+        <DeleteConfirmModal
+          claimed={!!row.claimed_by}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
       ) : null}
     </article>
   );
