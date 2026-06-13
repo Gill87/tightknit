@@ -65,10 +65,12 @@ function draftDurationMinutes(row: ListingRow): number {
 
 function DeleteConfirmModal({
   claimed,
+  durationMins,
   onConfirm,
   onCancel,
 }: {
   claimed: boolean;
+  durationMins: number | null;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -81,6 +83,11 @@ function DeleteConfirmModal({
             ? "Are you sure that you would like to delete this post? Someone had claimed it — they may still see an old link."
             : "Are you sure that you would like to delete this post?"}
         </p>
+        {durationMins != null && durationMins > 0 ? (
+          <p className={tkMyPosts.dialogRefundNote}>
+            Your {formatDurationLabel(durationMins)} will be refunded.
+          </p>
+        ) : null}
         <div className={tkMyPosts.dialogActions}>
           <button type="button" className={tkMyPosts.dialogBtnCancel} onClick={onCancel}>Cancel</button>
           <button type="button" className={tkMyPosts.dialogBtnDelete} onClick={onConfirm}>Delete</button>
@@ -97,7 +104,7 @@ function ListingCard({
 }: {
   row: ListingRow;
   onUpdated: (next: ListingRow) => void;
-  onDeleted: (id: string) => void;
+  onDeleted: (id: string, durationMins: number | null) => void;
 }) {
   const [editField, setEditField] = useState<null | "desc" | "needed" | "duration">(null);
   const [draftDesc, setDraftDesc] = useState(row.description ?? "");
@@ -154,7 +161,7 @@ function ListingCard({
     const { error } = await getSupabase().from("listings").delete().eq("id", row.id);
     setSaving(false);
     if (error) { setLocalError(error.message); return; }
-    onDeleted(row.id);
+    onDeleted(row.id, row.duration_minutes);
   };
 
   const durationLabel = formatDurationLabel(draftMins);
@@ -241,6 +248,7 @@ function ListingCard({
       {showDeleteConfirm ? (
         <DeleteConfirmModal
           claimed={!!row.claimed_by}
+          durationMins={row.duration_minutes}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setShowDeleteConfirm(false)}
         />
@@ -264,12 +272,31 @@ export default function MyPostsPage() {
     );
   }
 
-  function handleDeleted(id: string) {
+  async function handleDeleted(id: string, durationMins: number | null) {
     queryClient.setQueryData(
       ["listings", "mine", user?.id],
       (old: ListingRow[] | undefined) => old?.filter((r) => r.id !== id) ?? [],
     );
     queryClient.invalidateQueries({ queryKey: ["listings", "feed"] });
+
+    if (!durationMins || !user?.id) return;
+    const hoursToRefund = durationMins / 60;
+    const { data: profileRow } = await getSupabase()
+      .from("profiles")
+      .select("hour_balance")
+      .eq("id", user.id)
+      .single();
+    const current = parseFloat(String(profileRow?.hour_balance ?? "0"));
+    const newBalance = (Number.isFinite(current) ? current : 0) + hoursToRefund;
+    await getSupabase()
+      .from("profiles")
+      .update({ hour_balance: newBalance })
+      .eq("id", user.id);
+    queryClient.setQueryData(["profile", user.id, "balance"], newBalance);
+    queryClient.setQueryData(["profile", user.id], (old: unknown) => {
+      if (!old || typeof old !== "object") return old;
+      return { ...(old as object), hour_balance: newBalance };
+    });
   }
 
   return (

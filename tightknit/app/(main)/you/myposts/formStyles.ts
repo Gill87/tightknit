@@ -58,6 +58,7 @@ export const tkMyPosts = {
     "w-full max-w-xs rounded-3xl border border-tk-border bg-tk-card p-6 shadow-xl",
   dialogTitle: "text-base font-semibold text-tk-forest",
   dialogBody: "mt-2 text-sm leading-relaxed text-tk-muted",
+  dialogRefundNote: "mt-1 text-sm font-medium text-emerald-800",
   dialogActions: "mt-5 flex gap-3",
   dialogBtnDelete:
     "flex-1 rounded-full bg-tk-terracotta py-3 text-sm font-semibold text-white transition active:bg-tk-terracotta-hover",

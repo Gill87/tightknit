@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { DatePickerField } from "./components/DatePickerField";
 import { ChevronLeftIcon } from "./components/icons";
 import { cn, tkAsk } from "./formStyles";
+import { useQueryClient } from "@tanstack/react-query";
+import { getSupabase } from "@/lib/supabase/client";
 import { useCurrentUser, useProfile } from "@/lib/queries/profile";
 import { useCreateListing } from "@/lib/mutations/listings";
 
@@ -43,6 +45,7 @@ export default function AskPage() {
   const [neededDay, setNeededDay] = useState<string>(() => todayIsoDate());
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const { data: profile, isPending: profilePending } = useProfile(user?.id);
   const createListing = useCreateListing();
@@ -106,7 +109,24 @@ export default function AskPage() {
         lng,
         status: "open",
       });
-      router.push("/ask/success");
+      const hoursToDeduct = boundedDurationMins / 60;
+      const newBalance = hoursAvailable - hoursToDeduct;
+      try {
+        const { error: balErr } = await getSupabase()
+          .from("profiles")
+          .update({ hour_balance: newBalance })
+          .eq("id", user.id);
+        if (!balErr) {
+          queryClient.setQueryData(["profile", user.id, "balance"], newBalance);
+          queryClient.setQueryData(["profile", user.id], (old: unknown) => {
+            if (!old || typeof old !== "object") return old;
+            return { ...(old as object), hour_balance: newBalance };
+          });
+        }
+      } catch {
+        // Balance will self-heal on next profile refresh
+      }
+      router.push(`/ask/success?mins=${boundedDurationMins}`);
     } catch (err) {
       setSubmitError((err as Error).message);
     }

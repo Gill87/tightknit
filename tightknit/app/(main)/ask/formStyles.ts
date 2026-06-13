@@ -92,6 +92,8 @@ export const tkAsk = {
 
   successBody: "text-center text-[15px] leading-relaxed text-tk-muted",
 
+  successEscrowNote: "mt-2 text-center text-sm leading-relaxed text-tk-muted",
+
   secondaryLink:
     "block w-full rounded-full border border-tk-border bg-transparent py-4 text-center text-base font-semibold text-tk-forest transition hover:bg-tk-cream-deep active:scale-[0.99]",
 } as const;

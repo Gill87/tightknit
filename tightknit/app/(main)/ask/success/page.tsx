@@ -1,6 +1,31 @@
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircleIcon, ChevronLeftIcon } from "../components/icons";
 import { cn, tkAsk } from "../formStyles";
+
+function formatHoursLabel(totalMins: number): string {
+  if (totalMins < 60) return `${totalMins} min`;
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  if (m === 0) return h === 1 ? "1 hour" : `${h} hours`;
+  const hourPart = h === 1 ? "1 hr" : `${h} hrs`;
+  return `${hourPart} ${m} min`;
+}
+
+function EscrowNote() {
+  const searchParams = useSearchParams();
+  const mins = Number(searchParams.get("mins") ?? "0");
+  if (!mins || !Number.isFinite(mins) || mins <= 0) return null;
+  return (
+    <p className={tkAsk.successEscrowNote}>
+      We will deduct {formatHoursLabel(mins)} from your balance. You can have
+      these hours refunded if you delete the post.
+    </p>
+  );
+}
 
 export default function AskSuccessPage() {
   return (
@@ -25,6 +50,9 @@ export default function AskSuccessPage() {
             Your ask is live for neighbors nearby. Check back on the home feed
             to see responses and updates.
           </p>
+          <Suspense>
+            <EscrowNote />
+          </Suspense>
         </div>
 
         <div className="mt-4 flex flex-col gap-3">
