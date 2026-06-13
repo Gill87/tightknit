@@ -139,6 +139,7 @@ export default function YouPage() {
   const router = useRouter();
   const [signOutLoading, setSignOutLoading] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState(5);
+  const [radiusDirty, setRadiusDirty] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
   const [giftMinutes, setGiftMinutes] = useState(60);
   const [giftSearchQuery, setGiftSearchQuery] = useState("");
@@ -153,7 +154,6 @@ export default function YouPage() {
   const sessionUserIdRef = useRef<string | null>(null);
   const radiusSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const giftSearchWrapRef = useRef<HTMLDivElement | null>(null);
-  const radiusDirtyRef = useRef(false);
 
   const { data: user } = useCurrentUser();
   const { data: profile, isPending: profilePending } = useProfile(user?.id);
@@ -176,7 +176,7 @@ export default function YouPage() {
     () => parseRadiusMilesDb(profile?.radius_miles),
     [profile?.radius_miles]
   );
-  const displayRadiusMiles = radiusDirtyRef.current ? radiusMiles : profileRadiusMiles ?? radiusMiles;
+  const displayRadiusMiles = radiusDirty ? radiusMiles : profileRadiusMiles ?? radiusMiles;
 
   useEffect(() => {
     if (!profile) return;
@@ -276,7 +276,7 @@ export default function YouPage() {
   }
 
   function handleRadiusSliderChange(nextMiles: number) {
-    radiusDirtyRef.current = true;
+    setRadiusDirty(true);
     setRadiusMiles(nextMiles);
     if (!sessionUserIdRef.current) return;
     if (radiusSaveTimerRef.current) clearTimeout(radiusSaveTimerRef.current);
