@@ -233,10 +233,8 @@ export default function YouPage() {
 
   // Gift search dropdown close on outside click
   useEffect(() => {
-    if (!giftOpen) {
-      setGiftSearchDropdownOpen(false);
-      return;
-    }
+    if (!giftOpen) return;
+
     function handlePointerDown(e: PointerEvent) {
       const wrap = giftSearchWrapRef.current;
       if (!wrap) return;
@@ -420,7 +418,10 @@ export default function YouPage() {
               id="gift-hours-trigger"
               aria-expanded={giftOpen}
               aria-controls="gift-hours-panel"
-              onClick={() => setGiftOpen((o) => !o)}
+              onClick={() => {
+                if (giftOpen) setGiftSearchDropdownOpen(false);
+                setGiftOpen((open) => !open);
+              }}
               className={tkYou.giftTrigger}
             >
               <span className={cn(tkYou.giftIconWrap, giftOpen && tkYou.giftIconWrapOpen)}>
