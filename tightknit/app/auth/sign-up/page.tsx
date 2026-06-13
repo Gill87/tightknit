@@ -19,6 +19,7 @@ import {
   footerRow,
   footerLink,
   errorBanner,
+  fieldLabelMuted,
 } from '@/app/auth/formStyles'
 
 export default function SignUpPage() {
@@ -128,9 +129,11 @@ export default function SignUpPage() {
           </FormField>
 
           <FormField
-            label="Phone number"
-            helperPrefix="For neighbor verification only. Never shared "
-            helperLinkText="publicly."
+            label={
+              <>
+                Phone number <span className={fieldLabelMuted}>(optional)</span>
+              </>
+            }
           >
             <Input
               type="tel"

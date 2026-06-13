@@ -16,6 +16,7 @@ export const formRoot = 'flex flex-col gap-5'
 // FormField
 export const fieldRoot = 'flex flex-col gap-1'
 export const fieldLabel = 'text-sm font-medium text-tk-forest'
+export const fieldLabelMuted = 'font-normal text-tk-muted'
 export const helperText = 'text-xs text-tk-muted mt-0.5'
 export const helperLink = 'text-tk-terracotta'
 

@@ -1,7 +1,7 @@
 import { fieldRoot, fieldLabel, helperText, helperLink } from '../formStyles'
 
 interface FormFieldProps {
-  label: string
+  label: React.ReactNode
   children: React.ReactNode
   helperPrefix?: string
   helperLinkText?: string
