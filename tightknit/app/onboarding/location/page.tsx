@@ -69,27 +69,41 @@ export default function LocationPage() {
   const [radius, setRadius] = useState<number>(5)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
 
+  const handleLocationSuccess = useCallback(async (pos: GeolocationPosition) => {
+    const { latitude, longitude } = pos.coords
+    setCoords({ lat: latitude, lng: longitude })
+    const name = await reverseGeocode(latitude, longitude)
+    setCityName(name)
+    setStatus('granted')
+  }, [])
+
+  const handleLocationError = useCallback(() => {
+    setStatus('denied')
+  }, [])
+
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setStatus('denied')
       return
     }
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords
-        setCoords({ lat: latitude, lng: longitude })
-        const name = await reverseGeocode(latitude, longitude)
-        setCityName(name)
-        setStatus('granted')
-      },
-      () => setStatus('denied'),
-      { timeout: 10000 }
-    )
-  }, [])
+    navigator.geolocation.getCurrentPosition(handleLocationSuccess, handleLocationError, {
+      timeout: 10000,
+    })
+  }, [handleLocationError, handleLocationSuccess])
 
   useEffect(() => {
-    requestLocation()
-  }, [requestLocation])
+    if (!navigator.geolocation) {
+      const timeoutId = window.setTimeout(() => {
+        setStatus('denied')
+      }, 0)
+
+      return () => window.clearTimeout(timeoutId)
+    }
+
+    navigator.geolocation.getCurrentPosition(handleLocationSuccess, handleLocationError, {
+      timeout: 10000,
+    })
+  }, [handleLocationError, handleLocationSuccess])
 
   const circleR = calcCircleRadius(radius)
   const distanceLabel = distanceLabelForMiles(radius)
