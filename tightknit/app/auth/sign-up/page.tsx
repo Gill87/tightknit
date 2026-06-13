@@ -74,7 +74,6 @@ export default function SignUpPage() {
       <div className={pageInner}>
         <header className={headerSection}>
           <div className={logoRow}>
-            <span>🧵</span>
             <h1 className={appTitle}>Tightknit</h1>
           </div>
           <p className={tagline}>Trade hours with your neighbors,<br />not money.</p>
