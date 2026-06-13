@@ -166,18 +166,17 @@ export default function YouPage() {
     sessionUserIdRef.current = user?.id ?? null;
   }, [user?.id]);
 
-  // Sync radius from profile on initial load (skip if user has already moved slider)
-  useEffect(() => {
-    if (!profile || radiusDirtyRef.current) return;
-    const parsed = parseRadiusMilesDb(profile.radius_miles);
-    if (parsed != null) setRadiusMiles(parsed);
-  }, [profile?.radius_miles]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Cap giftMinutes to balance whenever balance changes
   const balanceMinutes = useMemo(
     () => (profile ? hourBalanceToMinutes(profile.hour_balance) : DEFAULT_HOUR_BALANCE * 60),
     [profile]
   );
+
+  const profileRadiusMiles = useMemo(
+    () => parseRadiusMilesDb(profile?.radius_miles),
+    [profile?.radius_miles]
+  );
+  const displayRadiusMiles = radiusDirtyRef.current ? radiusMiles : profileRadiusMiles ?? radiusMiles;
 
   useEffect(() => {
     if (!profile) return;
@@ -287,7 +286,7 @@ export default function YouPage() {
     }, RADIUS_SAVE_DEBOUNCE_MS);
   }
 
-  const radiusLabel = useMemo(() => formatRadiusMi(radiusMiles), [radiusMiles]);
+  const radiusLabel = useMemo(() => formatRadiusMi(displayRadiusMiles), [displayRadiusMiles]);
   const giftCenter = useMemo(() => giftStepCenterParts(giftMinutes), [giftMinutes]);
   const balanceHoursLabel = useMemo(() => formatBalanceHoursLabel(balanceMinutes), [balanceMinutes]);
 
@@ -589,7 +588,7 @@ export default function YouPage() {
                   min={RADIUS_MIN}
                   max={RADIUS_MAX}
                   step={RADIUS_STEP}
-                  value={radiusMiles}
+                  value={displayRadiusMiles}
                   onChange={(e) => handleRadiusSliderChange(Number(e.target.value))}
                   onPointerUp={(e) => {
                     if (!sessionUserIdRef.current) return;

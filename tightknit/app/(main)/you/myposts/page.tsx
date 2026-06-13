@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DatePickerField } from "../../ask/components/DatePickerField";
 import { CalendarIcon, ChevronLeftIcon } from "../../ask/components/icons";
@@ -59,6 +59,10 @@ function canDelete(row: ListingRow): boolean {
   return row.completed_at == null;
 }
 
+function draftDurationMinutes(row: ListingRow): number {
+  return Math.min(DURATION_MAX, Math.max(DURATION_MIN, row.duration_minutes ?? DURATION_MIN));
+}
+
 function ListingCard({
   row,
   onUpdated,
@@ -71,23 +75,30 @@ function ListingCard({
   const [editField, setEditField] = useState<null | "desc" | "needed" | "duration">(null);
   const [draftDesc, setDraftDesc] = useState(row.description ?? "");
   const [draftNeeded, setDraftNeeded] = useState(row.needed_by ?? todayIsoDate());
-  const [draftMins, setDraftMins] = useState(
-    Math.min(DURATION_MAX, Math.max(DURATION_MIN, row.duration_minutes ?? DURATION_MIN)),
-  );
+  const [draftMins, setDraftMins] = useState(draftDurationMinutes(row));
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const resetDraftsFromRow = () => {
     setDraftDesc(row.description ?? "");
     setDraftNeeded(row.needed_by ?? todayIsoDate());
-    setDraftMins(Math.min(DURATION_MAX, Math.max(DURATION_MIN, row.duration_minutes ?? DURATION_MIN)));
-  }, [row]);
+    setDraftMins(draftDurationMinutes(row));
+  };
 
   const editable = canEdit(row);
   const deletable = canDelete(row);
   const badge = statusBadge(row);
 
   const closeEditor = () => { setEditField(null); setLocalError(null); };
+  const toggleEditor = (field: "desc" | "needed" | "duration") => {
+    setLocalError(null);
+    if (editField === field) {
+      setEditField(null);
+      return;
+    }
+    resetDraftsFromRow();
+    setEditField(field);
+  };
 
   const savePatch = async (patch: Record<string, unknown>) => {
     setSaving(true);
@@ -132,13 +143,13 @@ function ListingCard({
       </div>
 
       <div className={tkMyPosts.actionsRow}>
-        <button type="button" className={tkMyPosts.iconBtn} disabled={!editable || saving} aria-label="Edit description" onClick={() => { setEditField((f) => (f === "desc" ? null : "desc")); setLocalError(null); }}>
+        <button type="button" className={tkMyPosts.iconBtn} disabled={!editable || saving} aria-label="Edit description" onClick={() => toggleEditor("desc")}>
           <PencilIcon className="h-[18px] w-[18px]" />
         </button>
-        <button type="button" className={tkMyPosts.iconBtn} disabled={!editable || saving} aria-label="Edit needed-by date" onClick={() => { setEditField((f) => (f === "needed" ? null : "needed")); setLocalError(null); }}>
+        <button type="button" className={tkMyPosts.iconBtn} disabled={!editable || saving} aria-label="Edit needed-by date" onClick={() => toggleEditor("needed")}>
           <CalendarIcon className="h-[18px] w-[18px] text-tk-forest" />
         </button>
-        <button type="button" className={tkMyPosts.iconBtn} disabled={!editable || saving} aria-label="Edit duration" onClick={() => { setEditField((f) => (f === "duration" ? null : "duration")); setLocalError(null); }}>
+        <button type="button" className={tkMyPosts.iconBtn} disabled={!editable || saving} aria-label="Edit duration" onClick={() => toggleEditor("duration")}>
           <ClockIcon className="h-[18px] w-[18px] text-tk-terracotta" />
         </button>
         <button type="button" className={cn(tkMyPosts.iconBtn, tkMyPosts.iconBtnDanger)} disabled={!deletable || saving} aria-label="Delete post" onClick={() => void handleDelete()}>
