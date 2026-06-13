@@ -90,7 +90,7 @@ export default function RequestDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const [address, setAddress] = useState<string | null>(null);
+  const [address, setAddress] = useState<{ lat: number; lng: number; value: string } | null>(null);
   const [helpLoading, setHelpLoading] = useState(false);
 
   const { data: user } = useCurrentUser();
@@ -99,15 +99,27 @@ export default function RequestDetailPage({
 
   // Reverse-geocode the listing's location
   useEffect(() => {
-    if (!listing?.lat || !listing?.lng) {
-      setAddress("Location not specified");
-      return;
-    }
-    reverseGeocode(listing.lat, listing.lng).then(setAddress);
+    if (!listing?.lat || !listing?.lng) return;
+
+    let ignore = false;
+    reverseGeocode(listing.lat, listing.lng).then((nextAddress) => {
+      if (!ignore) setAddress({ lat: listing.lat!, lng: listing.lng!, value: nextAddress });
+    });
+
+    return () => {
+      ignore = true;
+    };
   }, [listing?.lat, listing?.lng]);
 
+  const displayAddress =
+    listing && (!listing.lat || !listing.lng)
+      ? "Location not specified"
+      : address?.lat === listing?.lat && address?.lng === listing?.lng
+        ? address?.value ?? null
+        : null;
+
   const data = useMemo(() => {
-    if (!listing || address === null) return null;
+    if (!listing || displayAddress === null) return null;
     const fullName = listing.posted_by_name || "Neighbor";
     let distance = "Nearby";
     if (myProfile?.lat && myProfile?.lng && listing.lat && listing.lng) {
@@ -121,11 +133,11 @@ export default function RequestDetailPage({
       distance,
       description: listing.description,
       durationMins: listing.duration_minutes,
-      address,
+      address: displayAddress,
       scheduledFor: formatNeededBy(listing.needed_by),
       requesterId: listing.posted_by,
     };
-  }, [listing, myProfile, address]);
+  }, [listing, myProfile, displayAddress]);
 
   const handleHelp = async () => {
     if (!data) return;
@@ -160,7 +172,7 @@ export default function RequestDetailPage({
     }
   };
 
-  if (listingPending || address === null) return <LoadingShell />;
+  if (listingPending || displayAddress === null) return <LoadingShell />;
   if (!listing || !data) return notFound();
 
   const firstName = data.name.split(" ")[0]?.replace(/\.$/, "") ?? data.name;

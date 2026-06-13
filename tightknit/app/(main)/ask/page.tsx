@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DatePickerField } from "./components/DatePickerField";
 import { ChevronLeftIcon } from "./components/icons";
@@ -54,12 +54,11 @@ export default function AskPage() {
       ? Math.min(DURATION_MAX, Math.floor(balanceMins / DURATION_STEP) * DURATION_STEP)
       : 0;
   const canAffordAnyTask = maxAffordableMins >= DURATION_MIN;
-  const durationFitsBalance = balanceHours === null || durationMins <= balanceMins + 1e-9;
-
-  useEffect(() => {
-    if (balanceHours === null || !canAffordAnyTask) return;
-    setDurationMins((d) => Math.min(Math.max(d, DURATION_MIN), maxAffordableMins));
-  }, [balanceHours, maxAffordableMins, canAffordAnyTask]);
+  const boundedDurationMins =
+    balanceHours !== null && canAffordAnyTask
+      ? Math.min(Math.max(durationMins, DURATION_MIN), maxAffordableMins)
+      : durationMins;
+  const durationFitsBalance = balanceHours === null || boundedDurationMins <= balanceMins + 1e-9;
 
   const canSubmit =
     need.trim().length > 0 &&
@@ -69,8 +68,8 @@ export default function AskPage() {
     canAffordAnyTask &&
     durationFitsBalance;
 
-  const durationLabel = useMemo(() => formatDurationLabel(durationMins), [durationMins]);
-
+  const durationLabel = useMemo(() => formatDurationLabel(boundedDurationMins), [boundedDurationMins]);
+  
   async function handlePostRequest() {
     if (createListing.isPending) return;
     if (!need.trim() || !neededDay.length) return;
@@ -89,7 +88,7 @@ export default function AskPage() {
     }
 
     const hoursAvailable = hourBalanceToNumber(profile?.hour_balance);
-    if (durationMins / 60 > hoursAvailable + 1e-9) {
+    if (boundedDurationMins / 60 > hoursAvailable + 1e-9) {
       setSubmitError(
         "This task is longer than your hour balance. Shorten the time or earn more hours first.",
       );
@@ -101,7 +100,7 @@ export default function AskPage() {
         posted_by: user.id,
         posted_by_name: profile?.full_name ?? null,
         description: need.trim(),
-        duration_minutes: durationMins,
+        duration_minutes: boundedDurationMins,
         needed_by: neededDay,
         lat,
         lng,
@@ -150,12 +149,12 @@ export default function AskPage() {
             min={DURATION_MIN}
             max={canAffordAnyTask ? maxAffordableMins : DURATION_MAX}
             step={DURATION_STEP}
-            value={durationMins}
+            value={boundedDurationMins}
             onChange={(e) => setDurationMins(Number(e.target.value))}
             disabled={balanceHours !== null && !canAffordAnyTask}
             aria-valuemin={DURATION_MIN}
             aria-valuemax={canAffordAnyTask ? maxAffordableMins : DURATION_MAX}
-            aria-valuenow={durationMins}
+            aria-valuenow={boundedDurationMins}
             aria-label="Estimated duration"
           />
           <div className={tkAsk.sliderLabelsRow}>
