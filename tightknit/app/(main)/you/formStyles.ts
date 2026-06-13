@@ -37,7 +37,7 @@ export const tkYou = {
   balanceBadge:
     "mt-3 inline-flex items-center gap-1.5 rounded-full bg-tk-blush px-3 py-1.5 text-sm font-medium text-tk-forest",
 
-  sectionHeaderRow: "flex items-baseline justify-between gap-3",
+  sectionHeaderRow: "mb-2 flex items-baseline justify-between gap-3",
 
   sectionTitle: "text-base font-semibold text-tk-forest",
 
